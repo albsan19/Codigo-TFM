@@ -1,0 +1,1699 @@
+---
+title: "Análisis Estadístico TFM"
+author: "Alberto Sanchez Romo"
+date: "2023-05-03"
+output: html_document
+---
+
+```{r librerias}
+library(readr)
+library(tidyverse)
+library(tidymodels)
+library(ggplot2)
+library(skimr)
+library(dplyr)
+library(doParallel)
+library(parallel)
+library(mice)
+```
+
+```{r}
+Encuesta_imputada <- read_csv(file = "./Encuesta_imputada.csv")
+Encuesta <- read_csv(file = "./el-futuro-es-ahora-anonimizado.csv") 
+
+Encuesta_imputada <-
+  Encuesta_imputada %>% 
+  select(-...1)
+
+names(Encuesta) <- stringr::str_replace_all(names(Encuesta), "-", "_")
+
+Abiertas<-
+  Encuesta %>%
+  select(c(tu_genero,cuales_crees_que_son_las_causas_del_origen_de_la_pandemia_de_coronavirus))
+
+``` 
+
+# Minería de texto
+```{r}
+Abiertas<-
+Abiertas %>% 
+  mutate(cuales_crees_que_son_las_causas_del_origen_de_la_pandemia_de_coronavirus =
+           stringr::str_split(cuales_crees_que_son_las_causas_del_origen_de_la_pandemia_de_coronavirus, "\\|"))
+
+Abiertas<-
+  Abiertas %>% 
+  mutate(tolower(tu_genero), tolower(cuales_crees_que_son_las_causas_del_origen_de_la_pandemia_de_coronavirus))
+
+Abiertas<-
+  Abiertas %>% drop_na()
+```
+
+
+```{r}
+# cargar las librerías necesarias
+library(tm) # para procesamiento de texto
+library(SnowballC) # para stemming
+library(wordcloud) # para visualización de palabras
+library(ggplot2) # para visualización de resultados
+
+# crear un corpus con tu variable de texto
+mi_corpus <- Corpus(VectorSource(Abiertas$tu_genero))
+
+# aplicar preprocesamiento al corpus
+mi_corpus <- tm_map(mi_corpus, tolower) # convertir todo a minúsculas
+mi_corpus <- tm_map(mi_corpus, removePunctuation) # remover puntuación
+mi_corpus <- tm_map(mi_corpus, removeNumbers) # remover números
+mi_corpus <- tm_map(mi_corpus, removeWords, stopwords("spanish")) # remover palabras vacías o stopwords
+mi_corpus <- tm_map(mi_corpus, stemDocument, language = "spanish") # reducir las palabras a su raíz
+
+# crear una matriz término-documento
+tdm <- TermDocumentMatrix(mi_corpus)
+
+# obtener los términos más frecuentes
+frecuencias <- rowSums(as.matrix(tdm))
+top_terms <- names(sort(frecuencias, decreasing = TRUE)[1:17])
+
+# # crear una nube de palabras
+# palabras <- findFreqTerms(tdm, lowfreq = 10)
+
+# palabras <- findFreqTerms(tdm, lowfreq = 5)
+# wordcloud(tdm, max.words = 100, random.order = FALSE, colors = brewer.pal(8, "Dark2"), scale = c(5, 1))
+# 
+# 
+# 
+# # crear un gráfico de barras con las frecuencias de los términos
+# df <- data.frame(term = names(frecuencias), freq = frecuencias)
+# df <- df[df$term %in% top_terms, ]
+# ggplot(df, aes(x = term, y = freq)) +
+#   geom_bar(stat = "identity") +
+#   coord_flip() +
+#   ggtitle("Frecuencia de los términos más comunes") +
+#   xlab("Términos") +
+#   ylab("Frecuencia")
+
+
+```
+
+```{r}
+tdm
+```
+
+# Ficheros por bloques
+# BLOQUES --> SELECCION DE VARIABLES
+
+RE## BLOQUE 1 --> RELACIONES
+
+```{r}
+Relaciones<-
+  Encuesta_imputada %>% 
+  select(c(tengo_suficiente_gente_mi_alrededor_para_pedir_ayuda_cuando_la_necesito, mis_relaciones_sociales_son_tan_satisfactorias_como_me_gustarian, consideras_que_los_medios_de_comunicacion_tienen_en_cuenta_toda_la_diversidad_de_la_sociedad_espanola, consideras_que_la_nuestra_es_una_sociedad_que_valora, quienes_consideras_que_son_mas_importantes_para_ti))
+
+```
+
+## BLOQUE 2 --> REDES SOCIALES
+
+```{r}
+RRSS<-
+  Encuesta_imputada %>% 
+  select(que_uso_principal_le_das_a_las_redes_sociales,alguna_vez_has_borrado_alguna_de_las_aplicaciones, con_cuanta_frecuencia_utilizas_las_redes_sociales, sientes_que_puedes_decir_yo_mostrar_lo_que_quieras_en_las_redes_sociales, te_sientes_influenciado_por_las_personas_que_sigues_en_las_redes_sociales, deberian_prohibirse_los_discursos_violentos_y_de_odio_en_las_redes_sociales, alguna_vez_te_has_sentido_mas_integradao_dentro_de_las_redes_sociales_que_fuera, cuanto_te_preocupa_el_uso_de_tus_datos_por_parte_de_las_empresas)
+```
+
+## BLOQUE 3 --> POLÍTICA
+
+```{r}
+Politica<-
+  Encuesta_imputada %>% 
+  select(cuanto_te_gustaria_dedicarte_a_la_politica, como_valorarias_la_calidad_de_la_democracia_en_la_que_vives, cuanto_te_sientes_representado_por_alguno_de_los_partidos_politicos_actuales, cuanto_crees_que_le_importa_a_los_politicos_la_opinion_de_los_jovenes_a_la_hora_de_elaborar_las_politicas, cuanto_crees_que_los_movimientos_sociales_pueden_provocar_cambios_politicos, alguna_vez_has_tenido_en_cuenta_que_tu_forma_de_consumo_es_tambien_una_forma_de_hacer_politica)
+
+```
+
+## BLOQUE 4 --> EUROPA
+
+```{r}
+Europa<-
+  Encuesta_imputada %>% 
+  select(si_tuvieras_que_definir_de_donde_eres_que_dirias, cuanto_crees_que_influye_la_union_europea_en_tu_vida, votaste_en_las_ultimas_elecciones_del_parlamento_europeo_de_2019, cual_de_las_siguientes_afirmaciones_sobre_la_union_europea_representa_mas_adecuadamente_tu_opinion, programasUE_Campana, programasUE_Erasmus, programasUE_Nada, programasUE_Otros, programasUE_PremiosJovenes, programasUE_Practicas, programasUE_ProgramaEuropeo,programasUE_Servicio, cual_de_estos_programas_de_juventud_de_la_union_europea_te_interesaria_conocer_mejor, crees_que_hace_falta_mas_informacion_sobre_lo_que_hace_la_union_europea)
+```
+
+## BLOQUE 5 --> PANDEMIA
+```{r}
+Pandemia<-
+  Encuesta_imputada %>% 
+  select(la_pandemia_ha_mejorado_significativamente_la_relacion, la_pandemia_ha_empeorado_significativamente_la_relacion, cuanto_estas_dispuesto_a_limitar_tu_libertad_de_movimientos_a_cambio_de_seguridad_sanitaria, cuanto_crees_que_la_pandemia_afectara_a_tus_oportunidades_laborales, crees_que_el_gobierno_deberia_obligar_a_los_ciudadanos_a_vacunarse, cuales_crees_que_son_las_causas_del_origen_de_la_pandemia_de_coronavirus)
+```
+
+## BLOQUE 6 --> EDUCACIÓN
+
+```{r}
+Educacion<-
+  Encuesta_imputada %>% 
+  select(por_que_es_importante_la_educacion, cuanto_crees_que_la_formacion_va_a_contribuir_a_que_tengas_un_mejor_sueldo, crees_que_desde_la_educacion_deberia_potenciarse_mas_la_motivacion_personal_de_cada_alumno, crees_que_existe_una_falta_de_cooperacion_y_de_valores_dentro_del_aula, como_consideras_que_ha_sido_el_desarrollo_de_tu_aprendizaje_en_el_sistema_educativo_actual, cuanto_crees_que_la_tecnologia_puede_mejorar_la_calidad_de_la_educacion, habilidades_Aprender, habilidades_Digital, habilidades_Cultura, habilidades_IniciativaEmprendedor, habilidades_SocialesCivicas, habilidades_MatematicasCienciaTecnologia, habilidades_Linguistica, consideras_que_el_planteamiento_general_del_sistema_educativo_responde_a_las_necesidades_que_vas_a_tener_en_el_futuro)
+```
+
+## BLOQUE 7 --> SOCIAL
+
+```{r}
+Social<-
+  Encuesta_imputada %>% 
+  select(cuanto_te_preocupan_los_problemas_de_tu_entorno, del_1_al_5_indica_lo_acuerdo_o_en_desacuerdo_que_estas_con_la_siguiente_frase_para_que_se_de_un_cambio_social_hace_falta_que_la_juventud_se_implique, definimos_agente_de_cambio_como_una_persona_que_toma_accion_para_solucionar_un_problema_lo_hace_en_equipo_y_busca_el_bien_de_todos_te_consideras_un_agente_de_cambio, en_el_ultimo_ano_has_participado_en_alguna_iniciativa_para_abordar_un_problema_social_o_ambiental_en_tu_entorno, si_has_respondido_que_no_a_la_anterior_pregunta_por_que_no_has_participado_en_alguna_iniciativa_para_abordar_un_problema_social_o_ambiental_en_tu_entorno, desde_donde_se_pueden_generar_cambios_sociales_prioriza_una_opcion, actividades_Asociacion, actividades_ContactadoPolitico, actividades_Votado, actividades_Huelga, actividades_Manifestacion, actividades_EncuentroPolitico, actividades_PartidoPolitico, actividades_Donado, casa_Ordenador, casa_Coche, casa_Instrumento, casa_Tablet, casa_Telefonos, casa_Televison, casa_Habitaciones, casa_Ebook, lista_Escritorio, lista_Ordenador, lista_Lugar, lista_Internet, lista_Habitacion, lista_LibrosArte, lista_LibrosLiteratura, lista_LibrosPoesia, lista_ObrasArte)
+```
+
+## BLOQUE 8 --> TRABAJO
+
+```{r}
+Trabajo<-
+  Encuesta_imputada %>% 
+  select(cuanta_importancia_le_das_al_trabajo_en_tu_vida, como_consideras_que_es_la_oferta_laboral_para_los_jovenes_entre_18_y_25_anos, si_pudieras_escoger_que_modalidad_de_trabajo_prefieres, te_gustaria_trabajar_cuatro_dias_a_la_semana, estarias_dispuestoa_a_dejar_de_comprar_un_producto_porque_no_concuerda_con_tus_valores_personales, crees_que_la_brecha_salarial_entre_hombres_y_mujeres_en_algunos_oficios_esta_justificada, estarias_dispuestoa_a_dejar_un_trabajo_porque_la_empresa_no_promueve_los_valores_con_los_que_te_sientes_representado)
+```
+
+## BLOQUE 9 --> PLANETA
+
+```{r}
+Planeta<-
+  Encuesta_imputada %>% 
+  select(cuanto_sabes_sobre_el_tema_de_la_crisis_climatica, cuando_escuchas_hablar_de_crisis_climatico_que_sientes, a_que_se_debe_la_crisis_climatica, accionclimatica_Sociedad, accionclimatica_Gobiernos, accionclimatica_Persona, accionclimatica_Cientificos, accionclimatica_Empresas,accionclimatica_NoAccion,acciones_Movimiento, acciones_Concienciar, acciones_Alimentacion, acciones_InfoRRSS, acciones_Consumo, acciones_Factura, acciones_Nada, acciones_Organizacion, consideras_que_se_planifica_a_largo_plazo_desde_las_instituciones_para_contrarrestar_la_emergencia_climatica)
+```
+
+## BLOQUE 10 --> FUTURO
+
+```{r}
+Futuro<-
+  Encuesta_imputada %>% 
+  select(has_sentido_alguna_vez_discriminacion_por_tu_orientacion_sexual, como_afrontas_el_futuro, pensando_MercadoLaboral, pensando_Sanidad, pensando_CalidadEmpleo, pensando_ProblemasSociales, pensando_ProblemasEconomicos, pensando_GestionPolitica, pensando_Corrupcion, pensando_Vivienda, pensando_Educacion, pensando_Drogas, pensando_Pensiones, pensando_Valores, pensando_InseguridadCiudadana, pensando_Impuestos, pensando_DesigualdaGenero, pensando_Inmigracion, pensando_ProblemasClimaticos, pensando_Recortes, pensando_Nacionalismos, pensando_ServiciosPublicos, NoPiensanComoTu_Curiosidad, NoPiensanComoTu_Indiferencia, NoPiensanComoTu_Comodidad, NoPiensanComoTu_Alegria, NoPiensanComoTu_Miedo, espana_es_un_pais_avanzado_en_la_reduccion_de_desigualdades, mi_identidad_cultura_orientacion_sexual_identidad_de_genero_religion_clase_edad_influye_en_mi_relacion_con_los_demas, discriminacion_ColorPiel, discriminacion_cuerpo, discriminacion_Economia, discriminacion_Edad, discriminacion_Fisico, discriminacion_Genero, discriminacion_Mentales, discriminacion_Orientacion, discriminacion_Politica, discriminacion_Relacionarte, discriminacion_Religion, discriminacion_Religion)
+``` 
+
+# PREGUNTAS SOCIODEMOGRÁFICAS
+```{r}
+SocioDemograficas<-
+  Encuesta_imputada %>% 
+  select(tu_genero, tu_edad, tu_origen, que_estudios_has_terminado, tu_ocupacion, cuantos_habitantes_tiene_el_municipio_en_el_que_vives, tu_provincia, cuantos_libros_hay_en_tu_casa, tu_religion)
+```
+
+```{r}
+# Contar valores faltantes en un conjunto de datos
+sum(is.na(Relaciones))
+```
+##################################################################################################
+# Codigo Distancias
+```{r}
+# library(FactoMineR)
+# library(cluster)
+# library(factoextra)
+# 
+# set.seed(12345)
+# library(dplyr)
+# 
+# muestraRelaciones <- Relaciones %>% 
+#   slice_sample(n = 15000, replace = FALSE)
+# 
+# #realizar el MCA
+# relacionesmca <- MCA(muestraRelaciones, graph = FALSE)
+# 
+# # Calcular la matriz de distancia de Gower
+# dist_gower <- daisy(relacionesmca$ind$coord, metric = "gower")
+# 
+# dist_gower_mat <- as.matrix(dist_gower)
+# 
+# # Calcular el número óptimo de clusters
+# fviz_nbclust(dist_gower_mat, FUNcluster = pam, method = "silhouette")
+
+```
+
+##################################################################################
+
+# Análisis Clúster
+```{r}
+clusters <- detectCores() - 1
+make_cluster <- makeCluster(clusters)
+registerDoParallel(make_cluster)
+```
+
+
+## Relaciones
+```{r}
+
+#Sin embargo, debes tener en cuenta que K-means es un algoritmo que utiliza distancias euclidianas para agrupar los datos, lo que no es adecuado para variables categóricas. Por lo tanto, es recomendable que utilices un algoritmo que sea más adecuado para datos categóricos, como K-modes o K-prototypes. Estos algoritmos son variaciones de K-means que pueden manejar datos categóricos.
+
+set.seed(12345)
+library(dplyr)
+
+muestraRelaciones1 <- Relaciones %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+
+library(FactoMineR)
+library(factoextra)
+# library(klaR)
+
+# perform MCA
+mca1 <- MCA(muestraRelaciones1)
+
+# determine optimal number of clusters
+fviz_nbclust(mca1$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12346)
+
+muestraRelaciones2 <- Relaciones %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+
+
+# perform MCA
+mca2 <- MCA(muestraRelaciones2)
+
+# determine optimal number of clusters
+fviz_nbclust(mca2$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12347)
+
+muestraRelaciones3 <- Relaciones %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+
+# perform MCA
+mca3 <- MCA(muestraRelaciones3)
+
+# determine optimal number of clusters
+fviz_nbclust(mca3$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12348)
+
+muestraRelaciones4 <- Relaciones %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+
+# perform MCA
+mca4 <- MCA(muestraRelaciones4)
+
+# determine optimal number of clusters
+fviz_nbclust(mca4$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12349)
+
+muestraRelaciones5 <- Relaciones %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+
+# perform MCA
+mca5 <- MCA(muestraRelaciones5)
+
+# determine optimal number of clusters
+fviz_nbclust(mca5$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+# Cluster1 = 5
+# Cluster2 = 7
+# Cluster3 = 6
+# Cluster4 = 5
+# Cluster5 = 7
+
+# Media = 6 Cluster
+#Mediana = 6
+#Moda = 5,7
+
+```
+
+
+#"pam" se refiere al algoritmo Partitioning Around Medoids (PAM), que es una técnica de clustering basada en medoids, también conocida como k-medoids. Este algoritmo es similar al k-means, pero en lugar de utilizar la media de los puntos en un cluster, utiliza el medoide, que es el objeto más representativo del cluster en términos de distancia a los demás objetos. En R, la implementación de PAM se encuentra en la función pam() del paquete cluster.
+
+#El método PAM (Partitioning Around Medoids) es una alternativa al algoritmo K-means que también es adecuado para variables categóricas. A diferencia de K-means, PAM utiliza medoides en lugar de centroides y puede ser más efectivo en la formación de grupos cuando se tienen datos con alta presencia de valores atípicos o cuando los datos tienen estructuras no lineales.
+
+#En resumen, PAM es una buena opción para datos categóricos, pero como con cualquier método de agrupamiento, la elección del método adecuado depende de la naturaleza de los datos y los objetivos del análisis.
+
+
+
+
+## RRSS
+```{r}
+
+#Sin embargo, debes tener en cuenta que K-means es un algoritmo que utiliza distancias euclidianas para agrupar los datos, lo que no es adecuado para variables categóricas. Por lo tanto, es recomendable que utilices un algoritmo que sea más adecuado para datos categóricos, como K-modes o K-prototypes. Estos algoritmos son variaciones de K-means que pueden manejar datos categóricos.
+
+set.seed(12345)
+
+
+muestraRRSS1 <- RRSS %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+
+
+
+# perform MCA
+mca1 <- MCA(muestraRRSS1)
+
+# determine optimal number of clusters
+fviz_nbclust(mca1$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+
+set.seed(12346)
+
+muestraRRSS2<- RRSS %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+# perform MCA
+mca2 <- MCA(muestraRRSS2)
+
+# determine optimal number of clusters
+fviz_nbclust(mca2$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+
+set.seed(12347)
+
+muestraRRSS3 <- RRSS %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+
+# perform MCA
+mca3 <- MCA(muestraRRSS3)
+
+# determine optimal number of clusters
+fviz_nbclust(mca3$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+
+set.seed(12348)
+
+muestraRRSS4 <- RRSS %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+# perform MCA
+mca4 <- MCA(muestraRRSS4)
+
+# determine optimal number of clusters
+fviz_nbclust(mca4$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+
+set.seed(12349)
+
+muestraRRSS5 <- RRSS %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+# perform MCA
+mca5 <- MCA(muestraRRSS5)
+
+# determine optimal number of clusters
+fviz_nbclust(mca5$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+# Cluster1 = 6
+# Cluster2 = 10
+# Cluster3 = 6
+# Cluster4 = 6
+# Cluster5 = 8
+
+# Media = 7.2 Cluster
+#Mediana = 6
+#Moda = 6
+```
+
+## POLITICA
+```{r}
+
+#Sin embargo, debes tener en cuenta que K-means es un algoritmo que utiliza distancias euclidianas para agrupar los datos, lo que no es adecuado para variables categóricas. Por lo tanto, es recomendable que utilices un algoritmo que sea más adecuado para datos categóricos, como K-modes o K-prototypes. Estos algoritmos son variaciones de K-means que pueden manejar datos categóricos.
+
+set.seed(12345)
+
+muestraPolitica1 <- Politica %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+# perform MCA
+mca1 <- MCA(muestraPolitica1)
+
+# determine optimal number of clusters
+fviz_nbclust(mca1$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12346)
+
+muestraPolitica2 <- Politica %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+# perform MCA
+mca2 <- MCA(muestraPolitica2)
+
+# determine optimal number of clusters
+fviz_nbclust(mca2$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12347)
+
+muestraPolitica3 <- Politica %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+# perform MCA
+mca3 <- MCA(muestraPolitica3)
+
+# determine optimal number of clusters
+fviz_nbclust(mca3$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12348)
+
+muestraPolitica4 <- Politica %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+# perform MCA
+mca4 <- MCA(muestraPolitica4)
+
+# determine optimal number of clusters
+fviz_nbclust(mca4$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12349)
+
+muestraPolitica5 <- Politica %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+# perform MCA
+mca5 <- MCA(muestraPolitica5)
+
+# determine optimal number of clusters
+fviz_nbclust(mca5$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+
+# Cluster1 = 9
+# Cluster2 = 6
+# Cluster3 = 9
+# Cluster4 = 7
+# Cluster5 = 10
+
+# Media =  8.2 Cluster
+#Mediana = 9
+#Moda = 7
+```
+## EUROPA
+```{r}
+
+#Sin embargo, debes tener en cuenta que K-means es un algoritmo que utiliza distancias euclidianas para agrupar los datos, lo que no es adecuado para variables categóricas. Por lo tanto, es recomendable que utilices un algoritmo que sea más adecuado para datos categóricos, como K-modes o K-prototypes. Estos algoritmos son variaciones de K-means que pueden manejar datos categóricos.
+
+set.seed(12345)
+
+muestraEuropa1 <- Europa %>% 
+  slice_sample(n = 5000, replace = FALSE)
+muestraEuropa1 <- data.frame(lapply(muestraEuropa1, as.factor))
+
+# perform MCA
+mca1 <- MCA(muestraEuropa1)
+
+# determine optimal number of clusters
+fviz_nbclust(mca1$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12346)
+
+muestraEuropa2 <- Europa %>% 
+  slice_sample(n = 5000, replace = FALSE)
+muestraEuropa2 <- data.frame(lapply(muestraEuropa2, as.factor))
+
+# perform MCA
+mca2 <- MCA(muestraEuropa2)
+
+# determine optimal number of clusters
+fviz_nbclust(mca2$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12347)
+
+muestraEuropa3 <- Europa %>% 
+  slice_sample(n = 5000, replace = FALSE)
+muestraEuropa3 <- data.frame(lapply(muestraEuropa3, as.factor))
+
+# perform MCA
+mca3 <- MCA(muestraEuropa3)
+
+# determine optimal number of clusters
+fviz_nbclust(mca3$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12348)
+
+muestraEuropa4 <- Europa %>% 
+  slice_sample(n = 5000, replace = FALSE)
+muestraEuropa4 <- data.frame(lapply(muestraEuropa4, as.factor))
+
+# perform MCA
+mca4 <- MCA(muestraEuropa4)
+
+# determine optimal number of clusters
+fviz_nbclust(mca4$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12349)
+
+muestraEuropa5 <- Europa %>% 
+  slice_sample(n = 5000, replace = FALSE)
+muestraEuropa5<- data.frame(lapply(muestraEuropa5, as.factor))
+
+# perform MCA
+mca5 <- MCA(muestraEuropa5)
+
+# determine optimal number of clusters
+fviz_nbclust(mca5$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+# Cluster1 = 6
+# Cluster2 = 6
+# Cluster3 = 7
+# Cluster4 = 6
+# Cluster5 = 6
+
+# Media =  6.2 Cluster
+#Mediana = 6
+#Moda = 6
+```
+## PANDEMIA
+```{r}
+
+#Sin embargo, debes tener en cuenta que K-means es un algoritmo que utiliza distancias euclidianas para agrupar los datos, lo que no es adecuado para variables categóricas. Por lo tanto, es recomendable que utilices un algoritmo que sea más adecuado para datos categóricos, como K-modes o K-prototypes. Estos algoritmos son variaciones de K-means que pueden manejar datos categóricos.
+
+set.seed(12345)
+
+muestraPandemia1 <- Pandemia %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+# perform MCA
+mca1 <- MCA(muestraPandemia1)
+
+# determine optimal number of clusters
+fviz_nbclust(mca1$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12346)
+
+muestraPandemia2 <- Pandemia %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+# perform MCA
+mca2 <- MCA(muestraPandemia2)
+
+# determine optimal number of clusters
+fviz_nbclust(mca2$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12347)
+
+muestraPandemia3 <- Pandemia %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+# perform MCA
+mca3 <- MCA(muestraPandemia3)
+
+# determine optimal number of clusters
+fviz_nbclust(mca3$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12348)
+
+muestraPandemia4 <- Pandemia %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+# perform MCA
+mca4 <- MCA(muestraPandemia4)
+
+# determine optimal number of clusters
+fviz_nbclust(mca4$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12349)
+
+muestraPandemia5 <- Pandemia %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+# perform MCA
+mca5 <- MCA(muestraPandemia5)
+
+# determine optimal number of clusters
+fviz_nbclust(mca5$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+# Cluster1 = 9
+# Cluster2 = 10
+# Cluster3 = 8
+# Cluster4 = 9
+# Cluster5 = 2
+
+# Media =  7.6 Cluster
+#Mediana = 9
+#Moda = 9
+
+```
+## EDUCACION
+```{r}
+
+#Sin embargo, debes tener en cuenta que K-means es un algoritmo que utiliza distancias euclidianas para agrupar los datos, lo que no es adecuado para variables categóricas. Por lo tanto, es recomendable que utilices un algoritmo que sea más adecuado para datos categóricos, como K-modes o K-prototypes. Estos algoritmos son variaciones de K-means que pueden manejar datos categóricos.
+
+set.seed(12345)
+
+muestraEducacion1 <- Educacion %>% 
+  slice_sample(n = 5000, replace = FALSE)
+muestraEducacion1 <- data.frame(lapply(muestraEducacion1, as.factor))
+
+# perform MCA
+mca1 <- MCA(muestraEducacion1)
+
+# determine optimal number of clusters
+fviz_nbclust(mca1$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12346)
+
+muestraEducacion2 <- Educacion %>% 
+  slice_sample(n = 5000, replace = FALSE)
+muestraEducacion2 <- data.frame(lapply(muestraEducacion2, as.factor))
+
+# perform MCA
+mca2 <- MCA(muestraEducacion2)
+
+# determine optimal number of clusters
+fviz_nbclust(mca2$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12347)
+
+muestraEducacion3 <- Educacion %>% 
+  slice_sample(n = 5000, replace = FALSE)
+muestraEducacion3 <- data.frame(lapply(muestraEducacion3, as.factor))
+
+# perform MCA
+mca3 <- MCA(muestraEducacion3)
+
+# determine optimal number of clusters
+fviz_nbclust(mca3$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12348)
+
+muestraEducacion4 <- Educacion %>% 
+  slice_sample(n = 5000, replace = FALSE)
+muestraEducacion4 <- data.frame(lapply(muestraEducacion4, as.factor))
+
+# perform MCA
+mca4 <- MCA(muestraEducacion4)
+
+# determine optimal number of clusters
+fviz_nbclust(mca4$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12349)
+
+muestraEducacion5 <- Educacion %>% 
+  slice_sample(n = 5000, replace = FALSE)
+muestraEducacion5 <- data.frame(lapply(muestraEducacion5, as.factor))
+
+# perform MCA
+mca5 <- MCA(muestraEducacion5)
+
+# determine optimal number of clusters
+fviz_nbclust(mca5$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+# Cluster1 = 9
+# Cluster2 = 8
+# Cluster3 = 2
+# Cluster4 = 10
+# Cluster5 = 10
+
+# Media =  7.8 Cluster
+#Mediana = 9
+#Moda = 10
+
+```
+## SOCIAL
+```{r}
+
+#Sin embargo, debes tener en cuenta que K-means es un algoritmo que utiliza distancias euclidianas para agrupar los datos, lo que no es adecuado para variables categóricas. Por lo tanto, es recomendable que utilices un algoritmo que sea más adecuado para datos categóricos, como K-modes o K-prototypes. Estos algoritmos son variaciones de K-means que pueden manejar datos categóricos.
+
+set.seed(12345)
+
+muestraSocial1 <- Social %>% 
+  slice_sample(n = 5000, replace = FALSE)
+muestraSocial1 <- data.frame(lapply(muestraSocial1, as.factor))
+
+
+# perform MCA
+mca1 <- MCA(muestraSocial1)
+
+# determine optimal number of clusters
+fviz_nbclust(mca1$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12346)
+
+muestraSocial2 <- Social %>% 
+  slice_sample(n = 5000, replace = FALSE)
+muestraSocial2 <- data.frame(lapply(muestraSocial2, as.factor))
+
+
+# perform MCA
+mca2 <- MCA(muestraSocial2)
+
+# determine optimal number of clusters
+fviz_nbclust(mca2$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12347)
+
+muestraSocial3 <- Social %>% 
+  slice_sample(n = 5000, replace = FALSE)
+muestraSocial3 <- data.frame(lapply(muestraSocial3, as.factor))
+
+
+# perform MCA
+mca3 <- MCA(muestraSocial3)
+
+# determine optimal number of clusters
+fviz_nbclust(mca3$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12348)
+
+muestraSocial4 <- Social %>% 
+  slice_sample(n = 5000, replace = FALSE)
+muestraSocial4 <- data.frame(lapply(muestraSocial4, as.factor))
+
+
+# perform MCA
+mca4 <- MCA(muestraSocial4)
+
+# determine optimal number of clusters
+fviz_nbclust(mca4$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12349)
+
+muestraSocial5 <- Social %>% 
+  slice_sample(n = 5000, replace = FALSE)
+muestraSocial5 <- data.frame(lapply(muestraSocial5, as.factor))
+
+
+# perform MCA
+mca5 <- MCA(muestraSocial5)
+
+# determine optimal number of clusters
+fviz_nbclust(mca5$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+# Cluster1 = 4
+# Cluster2 = 2
+# Cluster3 = 4
+# Cluster4 = 2
+# Cluster5 = 4
+
+# Media =  7.8 Cluster
+#Mediana = 9
+#Moda = 10
+```
+## TRABAJO
+```{r}
+
+#Sin embargo, debes tener en cuenta que K-means es un algoritmo que utiliza distancias euclidianas para agrupar los datos, lo que no es adecuado para variables categóricas. Por lo tanto, es recomendable que utilices un algoritmo que sea más adecuado para datos categóricos, como K-modes o K-prototypes. Estos algoritmos son variaciones de K-means que pueden manejar datos categóricos.
+
+set.seed(12345)
+
+muestraTrabajo1 <- Trabajo %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+
+# perform MCA
+mca1 <- MCA(muestraTrabajo1)
+
+# determine optimal number of clusters
+fviz_nbclust(mca1$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12346)
+
+muestraTrabajo2 <- Trabajo %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+
+# perform MCA
+mca2 <- MCA(muestraTrabajo2)
+
+# determine optimal number of clusters
+fviz_nbclust(mca2$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12347)
+
+muestraTrabajo3 <- Trabajo %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+
+# perform MCA
+mca3 <- MCA(muestraTrabajo3)
+
+# determine optimal number of clusters
+fviz_nbclust(mca3$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12348)
+
+muestraTrabajo4 <- Trabajo %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+
+# perform MCA
+mca4 <- MCA(muestraTrabajo4)
+
+# determine optimal number of clusters
+fviz_nbclust(mca4$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12349)
+
+muestraTrabajo5 <- Trabajo %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+
+# perform MCA
+mca5 <- MCA(muestraTrabajo5)
+
+# determine optimal number of clusters
+fviz_nbclust(mca5$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+# Cluster1 = 9
+# Cluster2 = 10
+# Cluster3 = 7
+# Cluster4 = 10
+# Cluster5 = 9
+
+# Media =  9 Cluster
+#Mediana = 9
+#Moda = 9,10
+
+```
+## PLANETA
+```{r}
+
+#Sin embargo, debes tener en cuenta que K-means es un algoritmo que utiliza distancias euclidianas para agrupar los datos, lo que no es adecuado para variables categóricas. Por lo tanto, es recomendable que utilices un algoritmo que sea más adecuado para datos categóricos, como K-modes o K-prototypes. Estos algoritmos son variaciones de K-means que pueden manejar datos categóricos.
+
+set.seed(12345)
+
+muestraPlaneta1 <- Planeta %>% 
+  slice_sample(n = 5000, replace = FALSE)
+muestraPlaneta1 <- data.frame(lapply(muestraPlaneta1, as.factor))
+
+# perform MCA
+mca1 <- MCA(muestraPlaneta1)
+
+# determine optimal number of clusters
+fviz_nbclust(mca1$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12346)
+
+muestraPlaneta2 <- Planeta %>% 
+  slice_sample(n = 5000, replace = FALSE)
+muestraPlaneta2 <- data.frame(lapply(muestraPlaneta2, as.factor))
+
+# perform MCA
+mca2 <- MCA(muestraPlaneta2)
+
+# determine optimal number of clusters
+fviz_nbclust(mca2$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12347)
+
+muestraPlaneta3 <- Planeta %>% 
+  slice_sample(n = 5000, replace = FALSE)
+muestraPlaneta3 <- data.frame(lapply(muestraPlaneta3, as.factor))
+
+# perform MCA
+mca3 <- MCA(muestraPlaneta3)
+
+# determine optimal number of clusters
+fviz_nbclust(mca3$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12348)
+
+muestraPlaneta4 <- Planeta %>% 
+  slice_sample(n = 5000, replace = FALSE)
+muestraPlaneta4 <- data.frame(lapply(muestraPlaneta4, as.factor))
+
+# perform MCA
+mca4 <- MCA(muestraPlaneta4)
+
+# determine optimal number of clusters
+fviz_nbclust(mca4$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12349)
+
+muestraPlaneta5 <- Planeta %>% 
+  slice_sample(n = 5000, replace = FALSE)
+muestraPlaneta5 <- data.frame(lapply(muestraPlaneta5, as.factor))
+
+# perform MCA
+mca5 <- MCA(muestraPlaneta5)
+
+# determine optimal number of clusters
+fviz_nbclust(mca5$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+# Cluster1 = 2
+# Cluster2 = 2
+# Cluster3 = 4
+# Cluster4 = 2
+# Cluster5 = 4
+
+# Media =  2.8 Cluster
+#Mediana = 2
+#Moda = 2
+
+```
+## FUTURO
+```{r}
+
+#Sin embargo, debes tener en cuenta que K-means es un algoritmo que utiliza distancias euclidianas para agrupar los datos, lo que no es adecuado para variables categóricas. Por lo tanto, es recomendable que utilices un algoritmo que sea más adecuado para datos categóricos, como K-modes o K-prototypes. Estos algoritmos son variaciones de K-means que pueden manejar datos categóricos.
+
+
+set.seed(12345)
+
+muestraFuturo1 <- Futuro %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+muestraFuturo1 <- data.frame(lapply(muestraFuturo1, as.factor))
+
+# perform MCA
+mca1 <- MCA(muestraFuturo1)
+
+# determine optimal number of clusters
+fviz_nbclust(mca1$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12346)
+
+muestraFuturo2 <- Futuro %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+muestraFuturo2 <- data.frame(lapply(muestraFuturo2, as.factor))
+
+# perform MCA
+mca2 <- MCA(muestraFuturo2)
+
+# determine optimal number of clusters
+fviz_nbclust(mca2$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12347)
+
+muestraFuturo3 <- Futuro %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+muestraFuturo3 <- data.frame(lapply(muestraFuturo3, as.factor))
+
+# perform MCA
+mca3 <- MCA(muestraFuturo3)
+
+# determine optimal number of clusters
+fviz_nbclust(mca3$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12348)
+
+muestraFuturo4 <- Futuro %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+muestraFuturo4 <- data.frame(lapply(muestraFuturo4, as.factor))
+
+# perform MCA
+mca4 <- MCA(muestraFuturo4)
+
+# determine optimal number of clusters
+fviz_nbclust(mca4$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12349)
+
+muestraFuturo5 <- Futuro %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+muestraFuturo5 <- data.frame(lapply(muestraFuturo5, as.factor))
+
+# perform MCA
+mca5 <- MCA(muestraFuturo5)
+
+# determine optimal number of clusters
+fviz_nbclust(mca5$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+# Cluster1 = 7
+# Cluster2 = 3
+# Cluster3 = 4
+# Cluster4 = 7
+# Cluster5 = 4
+
+# Media =  5 Cluster
+#Mediana = 4
+#Moda = 4,7
+
+```
+## SD
+```{r}
+
+#Sin embargo, debes tener en cuenta que K-means es un algoritmo que utiliza distancias euclidianas para agrupar los datos, lo que no es adecuado para variables categóricas. Por lo tanto, es recomendable que utilices un algoritmo que sea más adecuado para datos categóricos, como K-modes o K-prototypes. Estos algoritmos son variaciones de K-means que pueden manejar datos categóricos.
+
+set.seed(12345)
+
+muestraSD1 <- SocioDemograficas %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+# perform MCA
+mca1 <- MCA(muestraSD1)
+
+# determine optimal number of clusters
+fviz_nbclust(mca1$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12346)
+
+muestraSD2 <- SocioDemograficas %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+# perform MCA
+mca2 <- MCA(muestraSD2)
+
+# determine optimal number of clusters
+fviz_nbclust(mca2$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12347)
+
+muestraSD3 <- SocioDemograficas %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+# perform MCA
+mca3 <- MCA(muestraSD3)
+
+# determine optimal number of clusters
+fviz_nbclust(mca3$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12348)
+
+muestraSD4 <- SocioDemograficas %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+# perform MCA
+mca4 <- MCA(muestraSD4)
+
+# determine optimal number of clusters
+fviz_nbclust(mca4$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+set.seed(12349)
+
+muestraSD5 <- SocioDemograficas %>% 
+  slice_sample(n = 5000, replace = FALSE)
+
+# perform MCA
+mca5 <- MCA(muestraSD5)
+
+# determine optimal number of clusters
+fviz_nbclust(mca5$ind$coord, FUNcluster = kmeans, method = "silhouette")
+
+# Cluster1 = 6
+# Cluster2 = 6
+# Cluster3 = 6
+# Cluster4 = 7
+# Cluster5 = 6
+
+# Media = 6.2 Cluster
+#Mediana = 6
+#Moda = 6
+
+```
+
+# Cluster No Jerarquico
+
+## Relaciones
+```{r}
+
+# Cluster1 = 5
+# Cluster2 = 7
+# Cluster3 = 6
+# Cluster4 = 5
+# Cluster5 = 7
+
+# Media = 6 Cluster
+#Mediana = 6
+#Moda = 5,7
+
+set.seed(12345)
+library(klaR)
+library(haven)
+
+#Análisis clúster no jerárquico con k-modas
+cluster_Relaciones1 <- kmodes (Relaciones, 5, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+cluster_Relaciones2 <- kmodes (Relaciones, 6, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+cluster_Relaciones3 <- kmodes (Relaciones, 7, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+
+#Asignamos el clúster a cada observación
+relaciones_Cl <- cbind(Relaciones, CLUSTER=cluster_Relaciones3$cluster)
+```
+
+```{r}
+cluster_Relaciones1$modes
+cluster_Relaciones1$size
+cluster_Relaciones1$withindiff
+
+
+cluster_Relaciones2$modes
+cluster_Relaciones2$size
+cluster_Relaciones2$withindiff
+
+
+cluster_Relaciones3$modes
+cluster_Relaciones3$size
+cluster_Relaciones3$withindiff
+```
+
+```{r}
+w1<-sum(cluster_Relaciones1$withindiff)
+w2<-sum(cluster_Relaciones2$withindiff)
+w3<-sum(cluster_Relaciones3$withindiff) # Menos error
+
+table(c(w1,w2,w3))
+
+```
+
+## RRSS
+
+```{r}
+# Cluster1 = 6
+# Cluster2 = 10
+# Cluster3 = 6
+# Cluster4 = 6
+# Cluster5 = 8
+
+# Media = 7.2 Cluster
+#Mediana = 6
+#Moda = 6
+
+
+#Análisis clúster no jerárquico con k-modas
+cluster_RRSS1 <- kmodes (RRSS, 6, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+cluster_RRSS2 <- kmodes (RRSS, 8, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+cluster_RRSS3 <- kmodes (RRSS, 10, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+
+
+#Asignamos el clúster a cada observación
+rrss_Cl <- cbind(RRSS, CLUSTER=cluster_RRSS3$cluster)
+
+```
+
+```{r}
+cluster_RRSS1$modes
+cluster_RRSS1$size
+cluster_RRSS1$withindiff
+
+
+cluster_RRSS2$modes
+cluster_RRSS2$size
+cluster_RRSS2$withindiff
+
+
+cluster_RRSS3$modes
+cluster_RRSS3$size
+cluster_RRSS3$withindiff
+```
+
+```{r}
+w1<-sum(cluster_RRSS1$withindiff)
+w2<-sum(cluster_RRSS2$withindiff)
+w3<-sum(cluster_RRSS3$withindiff) # Menos error
+
+table(c(w1,w2,w3))
+
+```
+
+
+## Politica
+
+```{r}
+# Cluster1 = 9
+# Cluster2 = 6
+# Cluster3 = 9
+# Cluster4 = 7
+# Cluster5 = 10
+
+# Media =  8.2 Cluster
+#Mediana = 9
+#Moda = 7
+#Análisis clúster no jerárquico con k-modas
+cluster_Politica1 <- kmodes (Politica, 6, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+cluster_Politica2 <- kmodes (Politica, 7, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+cluster_Politica3 <- kmodes (Politica, 9, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+cluster_Politica4 <- kmodes (Politica, 10, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+
+
+#Asignamos el clúster a cada observación
+Politica_Cl <- cbind(Politica, CLUSTER=cluster_Politica4$cluster)
+
+```
+
+```{r}
+cluster_Politica1$modes
+cluster_Politica1$size
+cluster_Politica1$withindiff
+
+
+cluster_Politica2$modes
+cluster_Politica2$size
+cluster_Politica2$withindiff
+
+
+cluster_Politica3$modes
+cluster_Politica3$size
+cluster_Politica3$withindiff
+
+cluster_Politica4$modes
+cluster_Politica4$size
+cluster_Politica4$withindiff
+```
+
+```{r}
+w1<-sum(cluster_Politica1$withindiff)
+w2<-sum(cluster_Politica2$withindiff)
+w3<-sum(cluster_Politica3$withindiff)
+w4<-sum(cluster_Politica4$withindiff) #Menos error
+
+table(c(w1,w2,w3,w4))
+
+```
+
+
+## Europa
+
+```{r}
+# Cluster1 = 6
+# Cluster2 = 6
+# Cluster3 = 7
+# Cluster4 = 6
+# Cluster5 = 6
+
+# Media =  6.2 Cluster
+#Mediana = 6
+#Moda = 6
+
+#Análisis clúster no jerárquico con k-modas
+cluster_Europa1 <- kmodes (Europa, 6, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+cluster_Europa2 <- kmodes (Europa, 7, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+
+#Asignamos el clúster a cada observación
+Europa_Cl <- cbind(Europa, CLUSTER=cluster_Europa2$cluster)
+
+```
+
+```{r}
+cluster_Europa1$modes
+cluster_Europa1$size
+cluster_Europa1$withindiff
+
+
+cluster_Europa2$modes
+cluster_Europa2$size
+cluster_Europa2$withindiff
+
+```
+
+```{r}
+w1<-sum(cluster_Europa1$withindiff)
+w2<-sum(cluster_Europa2$withindiff) #Menos error
+
+
+table(c(w1,w2))
+```
+
+## Pandemia
+
+```{r}
+# Cluster1 = 9
+# Cluster2 = 10
+# Cluster3 = 8
+# Cluster4 = 9
+# Cluster5 = 2
+
+# Media =  7.6 Cluster
+#Mediana = 9
+#Moda = 9
+
+#Análisis clúster no jerárquico con k-modas
+cluster_Pandemia1 <- kmodes (Pandemia, 2, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+cluster_Pandemia2 <- kmodes (Pandemia, 8, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+cluster_Pandemia3 <- kmodes (Pandemia, 9, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+cluster_Pandemia4 <- kmodes (Pandemia, 10, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+#Asignamos el clúster a cada observación
+Pandemia_Cl <- cbind(Pandemia, CLUSTER=cluster_Pandemia2$cluster)
+
+```
+
+```{r}
+cluster_Pandemia1$modes
+cluster_Pandemia1$size
+cluster_Pandemia1$withindiff
+
+
+cluster_Pandemia2$modes
+cluster_Pandemia2$size
+cluster_Pandemia2$withindiff
+
+cluster_Pandemia3$modes
+cluster_Pandemia3$size
+cluster_Pandemia3$withindiff
+
+cluster_Pandemia4$modes
+cluster_Pandemia4$size
+cluster_Pandemia4$withindiff
+```
+
+```{r}
+w1<-sum(cluster_Pandemia1$withindiff)
+w2<-sum(cluster_Pandemia2$withindiff) # Menor error
+w3<-sum(cluster_Pandemia3$withindiff)
+w4<-sum(cluster_Pandemia4$withindiff)
+
+table(c(w1,w2,w3,w4))
+```
+
+## Educacion
+
+```{r}
+# Cluster1 = 9
+# Cluster2 = 8
+# Cluster3 = 2
+# Cluster4 = 10
+# Cluster5 = 10
+
+# Media =  7.8 Cluster
+#Mediana = 9
+#Moda = 10
+
+#Análisis clúster no jerárquico con k-modas
+cluster_Educacion1 <- kmodes (Educacion, 2, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+cluster_Educacion2 <- kmodes (Educacion, 8, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+cluster_Educacion3 <- kmodes (Educacion, 9, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+cluster_Educacion4 <- kmodes (Educacion, 10, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+#Asignamos el clúster a cada observación
+Educacion_Cl <- cbind(Educacion, CLUSTER=cluster_Educacion4$cluster)
+```
+
+```{r}
+cluster_Educacion1$modes
+cluster_Educacion1$size
+cluster_Educacion1$withindiff
+
+
+cluster_Educacion2$modes
+cluster_Educacion2$size
+cluster_Educacion2$withindiff
+
+cluster_Educacion3$modes
+cluster_Educacion3$size
+cluster_Educacion3$withindiff
+
+cluster_Educacion4$modes
+cluster_Educacion4$size
+cluster_Educacion4$withindiff
+```
+
+```{r}
+w1<-sum(cluster_Educacion1$withindiff)
+w2<-sum(cluster_Educacion2$withindiff)
+w3<-sum(cluster_Educacion3$withindiff)
+w4<-sum(cluster_Educacion4$withindiff) # Menor error
+
+table(c(w1,w2,w3,w4))
+```
+
+## Social
+
+```{r}
+# Cluster1 = 4
+# Cluster2 = 2
+# Cluster3 = 4
+# Cluster4 = 2
+# Cluster5 = 4
+
+# Media =  7.8 Cluster
+#Mediana = 9
+#Moda = 10
+
+#Análisis clúster no jerárquico con k-modas
+cluster_Social1 <- kmodes (Social, 2, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+cluster_Social2 <- kmodes (Social, 4, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+#Asignamos el clúster a cada observación
+Social_Cl <- cbind(Social, CLUSTER=cluster_Social2$cluster)
+```
+
+```{r}
+cluster_Social1$modes
+cluster_Social1$size
+cluster_Social1$withindiff
+
+
+cluster_Social2$modes
+cluster_Social2$size
+cluster_Social2$withindiff
+
+```
+
+```{r}
+w1<-sum(cluster_Social1$withindiff)
+w2<-sum(cluster_Social2$withindiff) # Menor error
+
+
+table(c(w1,w2))
+```
+
+## Trabajo
+
+```{r}
+# Cluster1 = 9
+# Cluster2 = 10
+# Cluster3 = 7
+# Cluster4 = 10
+# Cluster5 = 9
+
+# Media =  9 Cluster
+#Mediana = 9
+#Moda = 9,10
+
+#Análisis clúster no jerárquico con k-modas
+cluster_Trabajo1 <- kmodes (Trabajo , 7, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+cluster_Trabajo2 <- kmodes (Trabajo , 9, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+cluster_Trabajo3 <- kmodes (Trabajo , 10, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+#Asignamos el clúster a cada observación
+Trabajo_Cl <- cbind(Trabajo , CLUSTER=cluster_Trabajo3$cluster)
+```
+
+```{r}
+cluster_Trabajo1$modes
+cluster_Trabajo1$size
+cluster_Trabajo1$withindiff
+
+
+cluster_Trabajo2$modes
+cluster_Trabajo2$size
+cluster_Trabajo2$withindiff
+
+cluster_Trabajo3$modes
+cluster_Trabajo3$size
+cluster_Trabajo3$withindiff
+```
+
+```{r}
+w1<-sum(cluster_Trabajo1$withindiff)
+w2<-sum(cluster_Trabajo2$withindiff)
+w3<-sum(cluster_Trabajo3$withindiff) # Menor error
+
+table(c(w1,w2,w3))
+```
+
+## Planeta
+
+```{r}
+# Cluster1 = 2
+# Cluster2 = 2
+# Cluster3 = 4
+# Cluster4 = 2
+# Cluster5 = 4
+
+# Media =  2.8 Cluster
+#Mediana = 2
+#Moda = 2
+
+#Análisis clúster no jerárquico con k-modas
+cluster_Planeta1 <- kmodes (Planeta, 2, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+cluster_Planeta2 <- kmodes (Planeta, 4, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+
+#Asignamos el clúster a cada observación
+Planeta_Cl <- cbind(Planeta, CLUSTER=cluster_Planeta1$cluster)
+```
+
+```{r}
+cluster_Planeta1$modes
+cluster_Planeta1$size
+cluster_Planeta1$withindiff
+
+
+cluster_Planeta2$modes
+cluster_Planeta2$size
+cluster_Planeta2$withindiff
+
+```
+
+```{r}
+w1<-sum(cluster_Planeta1$withindiff) #Menor error
+w2<-sum(cluster_Planeta2$withindiff)
+
+table(c(w1,w2))
+```
+
+## Futuro
+
+```{r}
+# Cluster1 = 7
+# Cluster2 = 3
+# Cluster3 = 4
+# Cluster4 = 7
+# Cluster5 = 4
+
+# Media =  5 Cluster
+#Mediana = 4
+#Moda = 4,7
+
+#Análisis clúster no jerárquico con k-modas
+cluster_Futuro1 <- kmodes (Futuro, 3, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+cluster_Futuro2 <- kmodes (Futuro, 4, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+cluster_Futuro3 <- kmodes (Futuro, 7, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+#Asignamos el clúster a cada observación
+Futuro_Cl <- cbind(Futuro, CLUSTER=cluster_Futuro3$cluster)
+```
+
+```{r}
+cluster_Futuro1$modes
+cluster_Futuro1$size
+cluster_Futuro1$withindiff
+
+
+cluster_Futuro2$modes
+cluster_Futuro2$size
+cluster_Futuro2$withindiff
+
+cluster_Futuro3$modes
+cluster_Futuro3$size
+cluster_Futuro3$withindiff
+
+```
+
+```{r}
+w1<-sum(cluster_Futuro1$withindiff)
+w2<-sum(cluster_Futuro2$withindiff)
+w3<-sum(cluster_Futuro3$withindiff) #Menor error
+
+table(c(w1,w2,w3))
+```
+
+
+## SD
+
+```{r}
+# Cluster1 = 6
+# Cluster2 = 6
+# Cluster3 = 6
+# Cluster4 = 7
+# Cluster5 = 6
+
+# Media = 6.2 Cluster
+#Mediana = 6
+#Moda = 6
+
+#Análisis clúster no jerárquico con k-modas
+cluster_SocioDemograficas1 <- kmodes (SocioDemograficas, 6, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+cluster_SocioDemograficas2 <- kmodes (SocioDemograficas, 7, iter.max = 400, weighted = FALSE,
+fast = TRUE)
+
+#Asignamos el clúster a cada observación
+SocioDemograficas_Cl <- cbind(SocioDemograficas, CLUSTER=cluster_SocioDemograficas2$cluster)
+
+
+```
+
+```{r}
+cluster_SocioDemograficas1$modes
+cluster_SocioDemograficas1$size
+cluster_SocioDemograficas1$withindiff
+
+
+cluster_SocioDemograficas2$modes
+cluster_SocioDemograficas2$size
+cluster_SocioDemograficas2$withindiff
+
+```
+
+```{r}
+w1<-sum(cluster_SocioDemograficas1$withindiff)
+w2<-sum(cluster_SocioDemograficas2$withindiff) #Menor error
+
+table(c(w1,w2))
+```
+
+
+################################################################################################################
+```{r}
+relaciones_Cl
+rrss_Cl
+Politica_Cl
+Europa_Cl
+Pandemia_Cl
+Educacion_Cl
+Social_Cl
+Trabajo_Cl
+Planeta_Cl
+Futuro_Cl
+SocioDemograficas_Cl
+```
+
+```{r}
+stopCluster(make_cluster)
+
+registerDoSEQ() 
+```
+
+```{r}
+#Exportamos nuestro nuevo fichero a un csv
+write.csv(relaciones_Cl, 'relaciones_2.csv')
+write.csv(rrss_Cl, 'rrss_2.csv')
+write.csv(Politica_Cl, 'politica_2.csv')
+write.csv(Europa_Cl, 'europa_2.csv')
+write.csv(Pandemia_Cl, 'pandemia_2.csv')
+write.csv(Educacion_Cl, 'educacion_2.csv')
+write.csv(Social_Cl, 'social_2.csv')
+write.csv(Trabajo_Cl, 'trabajo_2.csv')
+write.csv(Planeta_Cl, 'planeta_2.csv')
+write.csv(Futuro_Cl, 'futuro_2.csv')
+write.csv(SocioDemograficas_Cl, 'sd_2.csv')
+
+```
+
+

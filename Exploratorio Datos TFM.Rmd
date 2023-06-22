@@ -1,0 +1,2663 @@
+---
+title: "Visualización Datos TFM"
+author: "Alberto Sanchez Romo"
+date: "2023-04-11"
+output: html_document
+---
+
+```{r librerias}
+library(readr)
+library(tidyverse)
+library(tidymodels)
+library(ggplot2)
+library(skimr)
+library(dplyr)
+library(doParallel)
+library(parallel)
+library(mice)
+```
+
+```{r datos}
+Encuesta <- read_csv(file = "./el-futuro-es-ahora-anonimizado.csv")
+names(Encuesta) <- stringr::str_replace_all(names(Encuesta), "-", "_")
+```
+# ANÁLISIS EXPLORATORIO
+
+```{r str, warning=FALSE}
+Encuesta %>% skim()
+```
+
+## PERFILES
+
+```{r exploratorio 1 ABIERTA, warning=FALSE}
+Encuesta %>%
+  count(profile_age, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n)) %>% 
+  head(10)
+
+ggplot(Encuesta, aes(x = profile_age)) +
+  geom_histogram(alpha = 0.3, bins = 25) +
+  labs(title = "Histograma de profile_age",
+       x = "profile_age", y = "Frec.")
+```
+
+```{r exploratorio 2 ABIERTA, warning=FALSE}
+Encuesta %>%
+  count(profile_postal_code, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n)) %>% 
+  head(10)
+
+ggplot(Encuesta, aes(x = profile_postal_code)) +
+  geom_histogram(alpha = 0.3, bins = 25) +
+  labs(title = "Histograma de profile_postal_code",
+       x = "profile_postal_code", y = "Frec.")
+```
+
+```{r exploratorio 3 CERRADA, warning=FALSE}
+Encuesta %>%
+  count(profile_city, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n)) 
+
+```
+
+```{r exploratorio 4 CERRADA, warning=FALSE}
+Encuesta %>%
+  count(profile_community, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n)) 
+```
+
+
+## ENCUESTA
+## Variables Ordinales
+```{r}
+Encuesta <-
+   Encuesta%>%
+  
+  mutate(across(where(is.character), as_factor)) %>% 
+  mutate(crees_que_desde_la_educacion_deberia_potenciarse_mas_la_motivacion_personal_de_cada_alumno = factor(crees_que_desde_la_educacion_deberia_potenciarse_mas_la_motivacion_personal_de_cada_alumno, levels = c("en total desacuerdo", "en desacuerdo","neutral","totalmente de acuerdo"),ordered = TRUE)) %>%
+  
+  mutate(mis_relaciones_sociales_son_tan_satisfactorias_como_me_gustarian = factor(mis_relaciones_sociales_son_tan_satisfactorias_como_me_gustarian, levels = c("Nada satisfactorias", "Casi nada satisfactorias","Poco satisfactorias","Totalmente satisfactorias"),ordered = TRUE)) %>%
+  
+  mutate(tengo_suficiente_gente_mi_alrededor_para_pedir_ayuda_cuando_la_necesito = factor(tengo_suficiente_gente_mi_alrededor_para_pedir_ayuda_cuando_la_necesito, levels = c("Nunca", "No","Pocas veces","A veces", "Sí","Siempre"),ordered = TRUE)) %>%
+  
+  mutate(consideras_que_los_medios_de_comunicacion_tienen_en_cuenta_toda_la_diversidad_de_la_sociedad_espanola = factor(consideras_que_los_medios_de_comunicacion_tienen_en_cuenta_toda_la_diversidad_de_la_sociedad_espanola, levels = c("Nada", "No demasiado","Muy de vez en cuando","Mucho"),ordered = TRUE)) %>%
+  
+  mutate(alguna_vez_has_borrado_alguna_de_las_aplicaciones = factor(alguna_vez_has_borrado_alguna_de_las_aplicaciones, levels = c("No", "Alguna vez lo he hecho","Lo hago de vez en cuando"),ordered = TRUE)) %>%
+  
+  mutate(con_cuanta_frecuencia_utilizas_las_redes_sociales = factor(con_cuanta_frecuencia_utilizas_las_redes_sociales, levels = c("Nada", "Poco","Lo normal", "Demasiado"),ordered = TRUE)) %>%
+  
+  mutate(sientes_que_puedes_decir_yo_mostrar_lo_que_quieras_en_las_redes_sociales = factor(sientes_que_puedes_decir_yo_mostrar_lo_que_quieras_en_las_redes_sociales, levels = c("Nunca","A veces", "Frecuentemente"),
+                                                                                           ordered = TRUE)) %>%
+  
+  mutate(alguna_vez_te_has_sentido_mas_integradao_dentro_de_las_redes_sociales_que_fuera = factor(alguna_vez_te_has_sentido_mas_integradao_dentro_de_las_redes_sociales_que_fuera, levels = c("Nunca","A veces", "Frecuentemente"),
+                             ordered = TRUE)) %>%
+  
+  mutate(cuanto_te_preocupa_el_uso_de_tus_datos_por_parte_de_las_empresas = factor(cuanto_te_preocupa_el_uso_de_tus_datos_por_parte_de_las_empresas, levels = c("Nada","Poco", "Bastante","Mucho"),
+                             ordered = TRUE)) %>% 
+  
+  mutate(cuanto_crees_que_le_importa_a_los_politicos_la_opinion_de_los_jovenes_a_la_hora_de_elaborar_las_politicas = factor(cuanto_crees_que_le_importa_a_los_politicos_la_opinion_de_los_jovenes_a_la_hora_de_elaborar_las_politicas, levels = c("Nada","Poco", "Bastante","Mucho"),ordered = TRUE)) %>%
+  
+  mutate(cuanto_crees_que_los_movimientos_sociales_pueden_provocar_cambios_politicos = factor(cuanto_crees_que_los_movimientos_sociales_pueden_provocar_cambios_politicos, levels = c("Nada","Poco", "Bastante","Mucho"),
+                             ordered = TRUE)) %>%
+  
+  mutate(crees_que_existe_una_falta_de_cooperacion_y_de_valores_dentro_del_aula = factor(crees_que_existe_una_falta_de_cooperacion_y_de_valores_dentro_del_aula, levels = c("En total desacuerdo","En desacuerdo", "Neutral","totalmente de acuerdo"),ordered = TRUE)) %>%
+  
+  mutate(cuanto_te_gustaria_dedicarte_a_la_politica = factor(cuanto_te_gustaria_dedicarte_a_la_politica, levels = c("Nada","Poco", "Bastante","Mucho"),ordered = TRUE)) %>%
+  
+   mutate(cuanto_estas_dispuesto_a_limitar_tu_libertad_de_movimientos_a_cambio_de_seguridad_sanitaria = factor(cuanto_estas_dispuesto_a_limitar_tu_libertad_de_movimientos_a_cambio_de_seguridad_sanitaria, levels = c("Nada","Poco", "Ni idea", "Bastante","Mucho"),ordered = TRUE)) %>%
+  
+  mutate(cuanto_crees_que_la_pandemia_afectara_a_tus_oportunidades_laborales = factor(cuanto_crees_que_la_pandemia_afectara_a_tus_oportunidades_laborales, levels = c("Nada","Poco", "Ni idea", "Bastante","Mucho"),
+                             ordered = TRUE)) %>%
+  
+  mutate(cuanto_crees_que_la_formacion_va_a_contribuir_a_que_tengas_un_mejor_sueldo = factor(cuanto_crees_que_la_formacion_va_a_contribuir_a_que_tengas_un_mejor_sueldo, levels = c("Nada","Poco", "Ni idea", "Bastante","Mucho"),ordered = TRUE)) %>%
+  
+  mutate(cuanto_crees_que_la_tecnologia_puede_mejorar_la_calidad_de_la_educacion = factor(cuanto_crees_que_la_tecnologia_puede_mejorar_la_calidad_de_la_educacion, levels = c("Nada","Poco", "Ni idea", "Bastante","Mucho"),ordered = TRUE)) %>%
+  
+  mutate(has_sentido_alguna_vez_discriminacion_por_tu_orientacion_sexual = factor(has_sentido_alguna_vez_discriminacion_por_tu_orientacion_sexual, levels = c("Nunca","Alguna vez", "Frecuentemente"),
+                             ordered = TRUE)) %>%
+  
+  mutate(consideras_que_el_planteamiento_general_del_sistema_educativo_responde_a_las_necesidades_que_vas_a_tener_en_el_futuro = factor(consideras_que_el_planteamiento_general_del_sistema_educativo_responde_a_las_necesidades_que_vas_a_tener_en_el_futuro, levels = c("Nada","Ni idea", "Poco", "Bastante", "Mucho"),ordered = TRUE)) %>%
+  
+  mutate(en_el_ultimo_ano_has_participado_en_alguna_iniciativa_para_abordar_un_problema_social_o_ambiental_en_tu_entorno = factor(en_el_ultimo_ano_has_participado_en_alguna_iniciativa_para_abordar_un_problema_social_o_ambiental_en_tu_entorno, levels = c("Nunca","No", "Pocas veces", "A veces", "Sí", "Siempre"),ordered = TRUE)) %>%
+  
+  mutate(cuanta_importancia_le_das_al_trabajo_en_tu_vida = factor(cuanta_importancia_le_das_al_trabajo_en_tu_vida, levels = c("Nada","Poco", "Bastante", "Mucho"),
+                             ordered = TRUE)) %>%
+  
+  mutate(estarias_dispuestoa_a_dejar_de_comprar_un_producto_porque_no_concuerda_con_tus_valores_personales = factor(estarias_dispuestoa_a_dejar_de_comprar_un_producto_porque_no_concuerda_con_tus_valores_personales, levels = c("Nada","Poco", "Bastante", "Mucho"),ordered = TRUE)) %>%
+  
+    mutate(cuanto_sabes_sobre_el_tema_de_la_crisis_climatica = factor(cuanto_sabes_sobre_el_tema_de_la_crisis_climatica, levels = c("Nada","Poco", "Bastante", "Mucho"),ordered = TRUE)) %>%
+  
+    mutate(como_valorarias_el_nivel_de_concienciacion_y_educacion_medioambiental_que_se_da_para_atender_y_entender_la_emergencia_climatica = factor(como_valorarias_el_nivel_de_concienciacion_y_educacion_medioambiental_que_se_da_para_atender_y_entender_la_emergencia_climatica, levels = c("Nada","insuficiente","suficiente", "Correcto", "Bueno", "Excelente"),ordered = TRUE)) %>%
+  
+  mutate(como_afrontas_el_futuro = factor(como_afrontas_el_futuro, levels = c("Pesimista","con indiferencia","ni lo pienso", "Optimista"),ordered = TRUE)) %>%
+  
+  mutate(espana_es_un_pais_avanzado_en_la_reduccion_de_desigualdades = factor(espana_es_un_pais_avanzado_en_la_reduccion_de_desigualdades, levels = c("Nada de acuerdo","Algo de acuerdo","Bastante de acuerdo", "Totalmente de acuerdo"),ordered = TRUE)) %>%
+  
+  mutate(mi_identidad_cultura_orientacion_sexual_identidad_de_genero_religion_clase_edad_influye_en_mi_relacion_con_los_demas = factor(mi_identidad_cultura_orientacion_sexual_identidad_de_genero_religion_clase_edad_influye_en_mi_relacion_con_los_demas, levels = c("Nada","Poco","Bastante", "Totalmente"),ordered = TRUE)) %>% 
+  
+   mutate(como_valorarias_la_calidad_de_la_democracia_en_la_que_vives = factor(como_valorarias_la_calidad_de_la_democracia_en_la_que_vives, levels = c("Nada","Poco","Bastante", "Totalmente"),
+                             ordered = TRUE)) %>%
+  
+    mutate(cuanto_te_preocupan_los_problemas_de_tu_entorno = factor(cuanto_te_preocupan_los_problemas_de_tu_entorno, levels = c("Nada","Ni idea","Poco","Bastante", "Totalmente"),ordered = TRUE)) %>%
+  
+  mutate(del_1_al_5_indica_lo_acuerdo_o_en_desacuerdo_que_estas_con_la_siguiente_frase_para_que_se_de_un_cambio_social_hace_falta_que_la_juventud_se_implique = factor(del_1_al_5_indica_lo_acuerdo_o_en_desacuerdo_que_estas_con_la_siguiente_frase_para_que_se_de_un_cambio_social_hace_falta_que_la_juventud_se_implique, levels = c("En total desacuerdo","En desacuerdo", "Neutral","De acuerdo", "Completamente de acuerdo"),ordered = TRUE)) %>%
+  
+    mutate(consideras_que_se_planifica_a_largo_plazo_desde_las_instituciones_para_contrarrestar_la_emergencia_climatica = factor(consideras_que_se_planifica_a_largo_plazo_desde_las_instituciones_para_contrarrestar_la_emergencia_climatica, levels = c("Nada","Ni idea", "Poco","Bastante", "Mucho"),ordered = TRUE)) %>%
+  
+   mutate(cuanto_te_sientes_representado_por_alguno_de_los_partidos_politicos_actuales = factor(cuanto_te_sientes_representado_por_alguno_de_los_partidos_politicos_actuales, levels = c("Nada", "Poco","Bastante", "Mucho"),
+                             ordered = TRUE)) %>%
+  
+   mutate(crees_que_hace_falta_mas_informacion_sobre_lo_que_hace_la_union_europea = factor(crees_que_hace_falta_mas_informacion_sobre_lo_que_hace_la_union_europea, levels = c("Nunca", "No", "Pocas veces","A veces", "Sí", "Siempre"),ordered = TRUE)) %>%
+  
+  mutate(cuanto_crees_que_influye_la_union_europea_en_tu_vida = factor(cuanto_crees_que_influye_la_union_europea_en_tu_vida, levels = c("Nada", "Poco", "Ni idea","Bastante", "Mucho"),ordered = TRUE))
+  
+``` 
+
+## VARIABLES
+
+```{r exploratorio 5 PANDEMIA CERRADA, warning=FALSE}
+Encuesta %>%
+  count(crees_que_el_gobierno_deberia_obligar_a_los_ciudadanos_a_vacunarse, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n)) 
+
+plot(Encuesta$crees_que_el_gobierno_deberia_obligar_a_los_ciudadanos_a_vacunarse)
+```
+
+```{r exploratorio 6 PANDEMIA ABIERTA(NA), warning=FALSE}
+Encuesta %>%
+  count(como_crees_que_podemos_evitar_otras_pandemias_en_el_futuro, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n)) 
+
+```
+
+```{r exploratorio 7 EDUCACIÓN CERRADA, warning=FALSE}
+Encuesta %>%
+  count(por_que_es_importante_la_educacion, sort = TRUE) %>%
+  mutate(porc = round(100 * n / sum(n), 2))
+
+plot(Encuesta$por_que_es_importante_la_educacion)
+```
+```{r}
+library(plotly)
+
+Encuesta %>%
+  count(por_que_es_importante_la_educacion, sort = TRUE) %>%
+  mutate(porc = round(100 * n / sum(n), 2)) %>%
+  plot_ly(x = ~por_que_es_importante_la_educacion, y = ~n, z = ~porc, type = "bar") %>%
+  layout(scene = list(xaxis = list(title = "Habitantes"),
+                      yaxis = list(title = "Frecuencia"),
+                      zaxis = list(title = "Porcentaje")),
+         barmode = "group")
+
+```
+
+```{r, recat v7}
+# Recategorizar variables
+Encuesta$por_que_es_importante_la_educacion <- case_when(
+                    Encuesta$por_que_es_importante_la_educacion %in% c("para descubrirse a uno mismo","para aprender cosas que te gustan", "no es tan importante") ~ "Otros/No es tan importante",
+                     Encuesta$por_que_es_importante_la_educacion == "para mejorar la sociedad" ~ "para mejorar la sociedad",
+                     Encuesta$por_que_es_importante_la_educacion == "para poder entender cómo funciona el mundo en el que vivo" ~ "para poder entender cómo funciona el mundo en el que vivo",
+                     Encuesta$por_que_es_importante_la_educacion == "para conseguir trabajo" ~ "para conseguir trabajo")
+
+
+Encuesta$por_que_es_importante_la_educacion<-factor(Encuesta$por_que_es_importante_la_educacion)
+
+Encuesta %>%
+  count(por_que_es_importante_la_educacion, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n)) 
+
+plot(Encuesta$por_que_es_importante_la_educacion)
+```
+
+```{r exploratorio 8 EDUCACIÓN CERRADA, warning=FALSE}
+Encuesta %>%
+  count(crees_que_desde_la_educacion_deberia_potenciarse_mas_la_motivacion_personal_de_cada_alumno, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n)) 
+
+plot(Encuesta$crees_que_desde_la_educacion_deberia_potenciarse_mas_la_motivacion_personal_de_cada_alumno)
+```
+
+```{r recat v8}
+Encuesta$crees_que_desde_la_educacion_deberia_potenciarse_mas_la_motivacion_personal_de_cada_alumno<- case_when(	
+  Encuesta$crees_que_desde_la_educacion_deberia_potenciarse_mas_la_motivacion_personal_de_cada_alumno %in% c("en total desacuerdo", "en desacuerdo") ~ "en desacuerdo",
+  Encuesta$crees_que_desde_la_educacion_deberia_potenciarse_mas_la_motivacion_personal_de_cada_alumno == "neutral" ~ "neutral",
+  Encuesta$crees_que_desde_la_educacion_deberia_potenciarse_mas_la_motivacion_personal_de_cada_alumno == "totalmente de acuerdo" ~ "totalmente de acuerdo",
+)
+
+Encuesta$crees_que_desde_la_educacion_deberia_potenciarse_mas_la_motivacion_personal_de_cada_alumno<-factor(Encuesta$crees_que_desde_la_educacion_deberia_potenciarse_mas_la_motivacion_personal_de_cada_alumno)
+
+Encuesta %>%
+  count(crees_que_desde_la_educacion_deberia_potenciarse_mas_la_motivacion_personal_de_cada_alumno, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n)) 
+
+plot(Encuesta$crees_que_desde_la_educacion_deberia_potenciarse_mas_la_motivacion_personal_de_cada_alumno)
+
+```
+
+
+
+```{r exploratorio 9 EDUCACIÓN CERRADA, warning=FALSE}
+Encuesta %>%
+  count(como_consideras_que_ha_sido_el_desarrollo_de_tu_aprendizaje_en_el_sistema_educativo_actual, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n)) 
+
+plot(Encuesta$como_consideras_que_ha_sido_el_desarrollo_de_tu_aprendizaje_en_el_sistema_educativo_actual)
+
+```
+
+```{r recat v9}
+Encuesta$como_consideras_que_ha_sido_el_desarrollo_de_tu_aprendizaje_en_el_sistema_educativo_actual <- case_when(
+  Encuesta$como_consideras_que_ha_sido_el_desarrollo_de_tu_aprendizaje_en_el_sistema_educativo_actual == "poca práctica y mucha teoría" ~ "poca práctica y mucha teoría",
+  Encuesta$como_consideras_que_ha_sido_el_desarrollo_de_tu_aprendizaje_en_el_sistema_educativo_actual %in% c("similar cantidad de teoría y práctica", "mucha práctica y poca teoría") ~ "mucha o similar practica y teoria"
+)
+
+Encuesta$como_consideras_que_ha_sido_el_desarrollo_de_tu_aprendizaje_en_el_sistema_educativo_actual<- factor(Encuesta$como_consideras_que_ha_sido_el_desarrollo_de_tu_aprendizaje_en_el_sistema_educativo_actual)
+
+
+Encuesta %>%
+  count(como_consideras_que_ha_sido_el_desarrollo_de_tu_aprendizaje_en_el_sistema_educativo_actual, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n)) 
+
+plot(Encuesta$como_consideras_que_ha_sido_el_desarrollo_de_tu_aprendizaje_en_el_sistema_educativo_actual)
+```
+
+
+```{r exploratorio 10 SD HABITANTES, warning=FALSE}
+Encuesta %>%
+  count(cuantos_habitantes_tiene_el_municipio_en_el_que_vives, sort = TRUE) %>%
+  mutate(porc = round(100 * n / sum(n), 2))
+
+
+plot(as_factor(Encuesta$cuantos_habitantes_tiene_el_municipio_en_el_que_vives))
+```
+```{r}
+library(plotly)
+
+Encuesta %>%
+  count(cuantos_habitantes_tiene_el_municipio_en_el_que_vives, sort = TRUE) %>%
+  mutate(porc = round(100 * n / sum(n), 2)) %>%
+  plot_ly(x = ~cuantos_habitantes_tiene_el_municipio_en_el_que_vives, y = ~n, z = ~porc, type = "bar") %>%
+  layout(scene = list(xaxis = list(title = "Habitantes"),
+                      yaxis = list(title = "Frecuencia"),
+                      zaxis = list(title = "Porcentaje")),
+         barmode = "group")
+
+```
+
+```{r recat v10}
+Encuesta$cuantos_habitantes_tiene_el_municipio_en_el_que_vives <- case_when(
+  Encuesta$cuantos_habitantes_tiene_el_municipio_en_el_que_vives == "Más de 101.000" ~ "Más de 101.000",
+  Encuesta$cuantos_habitantes_tiene_el_municipio_en_el_que_vives == "Entre 10.001 y 100.000" ~ "Entre 10.001 y 100.000",
+  Encuesta$cuantos_habitantes_tiene_el_municipio_en_el_que_vives %in% c("Entre 101 y 1000", "Menos de 100", "Entre 1001 y 10.000") ~ "Menos de 10.000"
+)
+
+Encuesta$cuantos_habitantes_tiene_el_municipio_en_el_que_vives <- factor(Encuesta$cuantos_habitantes_tiene_el_municipio_en_el_que_vives)
+
+Encuesta %>%
+  count(cuantos_habitantes_tiene_el_municipio_en_el_que_vives, sort = TRUE) %>%
+  mutate(porc = round(100 * n / sum(n), 2)) 
+
+plot(Encuesta$cuantos_habitantes_tiene_el_municipio_en_el_que_vives)
+
+```
+
+```{r}
+library(plotly)
+
+Encuesta %>%
+  count(cuantos_habitantes_tiene_el_municipio_en_el_que_vives, sort = TRUE) %>%
+  mutate(porc = round(100 * n / sum(n), 2)) %>%
+  plot_ly(x = ~cuantos_habitantes_tiene_el_municipio_en_el_que_vives, y = ~n, z = ~porc, type = "bar") %>%
+  layout(scene = list(xaxis = list(title = "Edad"),
+                      yaxis = list(title = "Frecuencia"),
+                      zaxis = list(title = "Porcentaje")),
+         barmode = "group")
+
+```
+
+```{r exploratorio 11 SD GÉNERO, warning=FALSE}
+Encuesta %>%
+  count(tu_genero, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n)) 
+
+```
+
+
+```{r recat v11}
+Encuesta<-Encuesta %>% 
+  mutate(tu_genero = stringr::str_to_lower(tu_genero))
+
+Encuesta<-Encuesta %>%
+  mutate(tu_genero = stringr::str_to_lower(tu_genero),
+         tu_genero = case_when(str_detect(tu_genero, "mujer") ~ "mujer",
+                               str_detect(tu_genero, "hombre") ~ "hombre",
+                               str_detect(tu_genero, "genero fluido") ~ "género fluído",
+                               str_detect(tu_genero, "agenero") ~ "agénero",
+                               str_detect(tu_genero, "androgino") ~ "andrógino",
+                               str_detect(tu_genero, "no bin") ~ "no binario",
+                               str_detect(tu_genero, "el genero no|el género no") ~ "no existe",
+                               str_detect(tu_genero, "no me identifico") ~ "no identifico", str_detect(tu_genero, "trans") ~ "trans",
+                               str_detect(tu_genero, "no me identifico") ~ "no identifico", str_detect(tu_genero, "helicoptero|helicóptero|no creo que sea relevante|persona|") ~ "otro", TRUE ~ tu_genero))
+
+
+Encuesta%>%
+  count(tu_genero, sort = TRUE) %>%
+  mutate(porc = round(100 * n / sum(n), 2)) 
+
+
+```
+
+```{r}
+library(ggplot2)
+
+Encuesta %>%
+  count(tu_genero, sort = TRUE) %>%
+  mutate(porc = round(100 * n / sum(n), 2)) %>%
+  na.omit() %>%
+  ggplot(aes(x = reorder(tu_genero, -porc), y = porc)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  labs(x = "Género", y = "Porcentaje") +
+  coord_flip()
+
+```
+
+
+
+
+```{r exploratorio 12 FUTURO CERRADA *, warning=FALSE}
+Encuesta %>%
+  count(que_sientes_cuando_estas_con_personas_que_no_piensan_como_tu, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+#Lista
+Encuesta<-
+Encuesta %>% 
+  mutate(que_sientes_cuando_estas_con_personas_que_no_piensan_como_tu =
+           stringr::str_split(que_sientes_cuando_estas_con_personas_que_no_piensan_como_tu, "\\|"))
+
+#Dummies
+Encuesta$NoPiensanComoTu_Curiosidad<- ifelse(Encuesta$que_sientes_cuando_estas_con_personas_que_no_piensan_como_tu == "Curiosidad", 1,0)
+Encuesta$NoPiensanComoTu_Indiferencia<- ifelse(Encuesta$que_sientes_cuando_estas_con_personas_que_no_piensan_como_tu == "Indiferencia", 1,0)
+Encuesta$NoPiensanComoTu_Miedo<- ifelse(Encuesta$que_sientes_cuando_estas_con_personas_que_no_piensan_como_tu == "Miedo", 1,0)
+Encuesta$NoPiensanComoTu_Comodidad<- ifelse(Encuesta$que_sientes_cuando_estas_con_personas_que_no_piensan_como_tu == "Comodidad", 1,0)
+Encuesta$NoPiensanComoTu_Alegria<- ifelse(Encuesta$que_sientes_cuando_estas_con_personas_que_no_piensan_como_tu == "Alegria", 1,0)
+
+  
+Encuesta %>%
+  count(NoPiensanComoTu_Curiosidad, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(NoPiensanComoTu_Indiferencia, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(NoPiensanComoTu_Miedo, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(NoPiensanComoTu_Comodidad, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(NoPiensanComoTu_Alegria, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta<-
+Encuesta %>% 
+  select(-que_sientes_cuando_estas_con_personas_que_no_piensan_como_tu)
+
+```
+
+```{r exploratorio 13 RELACIONES CERRADA, warning=FALSE}
+Encuesta %>%
+  count(mis_relaciones_sociales_son_tan_satisfactorias_como_me_gustarian, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n)) 
+
+plot(Encuesta$mis_relaciones_sociales_son_tan_satisfactorias_como_me_gustarian)
+```
+
+```{r}
+Encuesta$mis_relaciones_sociales_son_tan_satisfactorias_como_me_gustarian <- case_when(
+  Encuesta$mis_relaciones_sociales_son_tan_satisfactorias_como_me_gustarian %in% c("Casi nada satisfactorias", "Nada satisfactorias") ~ "Nada o casi nada satisfactorias",
+  Encuesta$mis_relaciones_sociales_son_tan_satisfactorias_como_me_gustarian == "Poco satisfactorias" ~ "Poco satisfactorias",
+  Encuesta$mis_relaciones_sociales_son_tan_satisfactorias_como_me_gustarian == "Totalmente satisfactorias" ~ "Totalmente satisfactorias",
+)
+
+Encuesta$mis_relaciones_sociales_son_tan_satisfactorias_como_me_gustarian <- factor(Encuesta$mis_relaciones_sociales_son_tan_satisfactorias_como_me_gustarian)
+
+Encuesta %>%
+  count(mis_relaciones_sociales_son_tan_satisfactorias_como_me_gustarian, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n)) 
+
+plot(Encuesta$mis_relaciones_sociales_son_tan_satisfactorias_como_me_gustarian)
+
+```
+
+
+
+
+```{r exploratorio 14 RELACIONES CERRADA, warning=FALSE}
+Encuesta %>%
+  count(tengo_suficiente_gente_mi_alrededor_para_pedir_ayuda_cuando_la_necesito, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$tengo_suficiente_gente_mi_alrededor_para_pedir_ayuda_cuando_la_necesito)
+
+Encuesta$tengo_suficiente_gente_mi_alrededor_para_pedir_ayuda_cuando_la_necesito<- case_when(
+  Encuesta$tengo_suficiente_gente_mi_alrededor_para_pedir_ayuda_cuando_la_necesito %in% c("Sí", "Siempre") ~ "Sí/Siempre",
+  Encuesta$tengo_suficiente_gente_mi_alrededor_para_pedir_ayuda_cuando_la_necesito %in% c("No", "Nunca") ~ "No/Nunca",
+  Encuesta$tengo_suficiente_gente_mi_alrededor_para_pedir_ayuda_cuando_la_necesito == "A veces" ~ "A veces",
+  Encuesta$tengo_suficiente_gente_mi_alrededor_para_pedir_ayuda_cuando_la_necesito == "Pocas veces" ~ "Pocas veces"
+)
+
+Encuesta$tengo_suficiente_gente_mi_alrededor_para_pedir_ayuda_cuando_la_necesito<-factor(Encuesta$tengo_suficiente_gente_mi_alrededor_para_pedir_ayuda_cuando_la_necesito)
+
+Encuesta %>%
+  count(tengo_suficiente_gente_mi_alrededor_para_pedir_ayuda_cuando_la_necesito, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$tengo_suficiente_gente_mi_alrededor_para_pedir_ayuda_cuando_la_necesito)
+
+```
+
+```{r exploratorio 15 RELACIONES CERRADA, warning=FALSE}
+Encuesta %>%
+  count(consideras_que_los_medios_de_comunicacion_tienen_en_cuenta_toda_la_diversidad_de_la_sociedad_espanola, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$consideras_que_los_medios_de_comunicacion_tienen_en_cuenta_toda_la_diversidad_de_la_sociedad_espanola)
+```
+
+```{r exploratorio 16 RELACIONES CERRADA, warning=FALSE}
+Encuesta %>%
+  count(consideras_que_la_nuestra_es_una_sociedad_que_valora, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$consideras_que_la_nuestra_es_una_sociedad_que_valora)
+```
+
+```{r exploratorio 17 RELACIONES ABIERTA (NA), warning=FALSE}
+Encuesta %>%
+  count(que_medidas_propones_para_reforzar_las_relaciones_entre_vecinosas_de_un_mismo_barrio, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+```
+
+```{r exploratorio 18 RRSS CERRADA, warning=FALSE}
+Encuesta %>%
+  count(que_uso_principal_le_das_a_las_redes_sociales, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$que_uso_principal_le_das_a_las_redes_sociales)
+
+
+Encuesta$que_uso_principal_le_das_a_las_redes_sociales<-case_when(
+  Encuesta$que_uso_principal_le_das_a_las_redes_sociales %in% c("para trabajo","para estudiar","para ligar") ~ "Otros",
+  Encuesta$que_uso_principal_le_das_a_las_redes_sociales == "entretenimiento" ~ "entretenimiento",
+  Encuesta$que_uso_principal_le_das_a_las_redes_sociales ==  "para hablar con otras personas" ~ "para hablar con otras personas",
+  Encuesta$que_uso_principal_le_das_a_las_redes_sociales == "para informarme" ~ "para informarme"
+)
+
+Encuesta$que_uso_principal_le_das_a_las_redes_sociales<-factor(Encuesta$que_uso_principal_le_das_a_las_redes_sociales)
+
+Encuesta %>%
+  count(que_uso_principal_le_das_a_las_redes_sociales, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$que_uso_principal_le_das_a_las_redes_sociales)
+
+```
+
+```{r exploratorio 19 RRSS CERRADA, warning=FALSE}
+Encuesta %>%
+  count(alguna_vez_has_borrado_alguna_de_las_aplicaciones, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$alguna_vez_has_borrado_alguna_de_las_aplicaciones)
+```
+
+```{r exploratorio 20 RRSS CERRADA, warning=FALSE}
+Encuesta %>%
+  count(con_cuanta_frecuencia_utilizas_las_redes_sociales, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n)) 
+
+plot(Encuesta$con_cuanta_frecuencia_utilizas_las_redes_sociales)
+
+Encuesta$con_cuanta_frecuencia_utilizas_las_redes_sociales<-case_when(
+  Encuesta$con_cuanta_frecuencia_utilizas_las_redes_sociales %in% c("Nada","Poco") ~ "Nada/Poco",
+  Encuesta$con_cuanta_frecuencia_utilizas_las_redes_sociales == "Demasiado" ~ "Demasiado",
+  Encuesta$con_cuanta_frecuencia_utilizas_las_redes_sociales == "Lo normal" ~ "Lo normal"
+)
+
+Encuesta$con_cuanta_frecuencia_utilizas_las_redes_sociales<- factor(Encuesta$con_cuanta_frecuencia_utilizas_las_redes_sociales)
+
+Encuesta %>%
+  count(con_cuanta_frecuencia_utilizas_las_redes_sociales, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n)) 
+
+plot(Encuesta$con_cuanta_frecuencia_utilizas_las_redes_sociales)
+
+```
+
+```{r exploratorio 21 RRSS CERRADA, warning=FALSE}
+Encuesta %>%
+  count(sientes_que_puedes_decir_yo_mostrar_lo_que_quieras_en_las_redes_sociales, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+
+
+plot(Encuesta$sientes_que_puedes_decir_yo_mostrar_lo_que_quieras_en_las_redes_sociales)
+```
+
+```{r exploratorio 22 RRSS CERRADA, warning=FALSE}
+Encuesta %>%
+  count(te_sientes_influenciado_por_las_personas_que_sigues_en_las_redes_sociales, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$te_sientes_influenciado_por_las_personas_que_sigues_en_las_redes_sociales)
+
+
+Encuesta$te_sientes_influenciado_por_las_personas_que_sigues_en_las_redes_sociales<-case_when(
+  Encuesta$te_sientes_influenciado_por_las_personas_que_sigues_en_las_redes_sociales == "Sí" ~ "Sí",
+  Encuesta$te_sientes_influenciado_por_las_personas_que_sigues_en_las_redes_sociales == "No" ~ "No",
+  TRUE ~ NA
+)
+
+Encuesta$te_sientes_influenciado_por_las_personas_que_sigues_en_las_redes_sociales<-factor(Encuesta$te_sientes_influenciado_por_las_personas_que_sigues_en_las_redes_sociales)
+
+Encuesta %>%
+  count(te_sientes_influenciado_por_las_personas_que_sigues_en_las_redes_sociales, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$te_sientes_influenciado_por_las_personas_que_sigues_en_las_redes_sociales)
+```
+
+```{r exploratorio 23 RRSS CERRADA, warning=FALSE}
+Encuesta %>%
+  count(deberian_prohibirse_los_discursos_violentos_y_de_odio_en_las_redes_sociales, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$deberian_prohibirse_los_discursos_violentos_y_de_odio_en_las_redes_sociales)
+
+Encuesta$deberian_prohibirse_los_discursos_violentos_y_de_odio_en_las_redes_sociales<-case_when(
+  Encuesta$deberian_prohibirse_los_discursos_violentos_y_de_odio_en_las_redes_sociales == "sí, el respeto es lo primero" ~ "sí, el respeto es lo primero",
+  Encuesta$deberian_prohibirse_los_discursos_violentos_y_de_odio_en_las_redes_sociales == "no, la libertad de expresión debe estar por encima" ~ "no, la libertad de expresión debe estar por encima",
+  TRUE ~ NA
+)
+
+Encuesta$deberian_prohibirse_los_discursos_violentos_y_de_odio_en_las_redes_sociales<-factor(Encuesta$deberian_prohibirse_los_discursos_violentos_y_de_odio_en_las_redes_sociales)
+
+Encuesta %>%
+  count(deberian_prohibirse_los_discursos_violentos_y_de_odio_en_las_redes_sociales, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$deberian_prohibirse_los_discursos_violentos_y_de_odio_en_las_redes_sociales)
+```
+
+```{r exploratorio 24 RRSS CERRADA, warning=FALSE}
+Encuesta %>%
+  count(alguna_vez_te_has_sentido_mas_integradao_dentro_de_las_redes_sociales_que_fuera, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$alguna_vez_te_has_sentido_mas_integradao_dentro_de_las_redes_sociales_que_fuera)
+```
+
+```{r exploratorio 25 RRSS CERRADA, warning=FALSE}
+Encuesta %>%
+  count(cuanto_te_preocupa_el_uso_de_tus_datos_por_parte_de_las_empresas, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$cuanto_te_preocupa_el_uso_de_tus_datos_por_parte_de_las_empresas)
+```
+
+```{r exploratorio 26 RRSS ABIERTA(NA) , warning=FALSE}
+Encuesta %>%
+  count(como_se_podria_mejorar_el_uso_de_las_redes_sociales, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+```
+
+```{r exploratorio 27 POLITICA CERRADA, warning=FALSE}
+Encuesta %>%
+  count(cuanto_crees_que_le_importa_a_los_politicos_la_opinion_de_los_jovenes_a_la_hora_de_elaborar_las_politicas, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$cuanto_crees_que_le_importa_a_los_politicos_la_opinion_de_los_jovenes_a_la_hora_de_elaborar_las_politicas)
+
+Encuesta$cuanto_crees_que_le_importa_a_los_politicos_la_opinion_de_los_jovenes_a_la_hora_de_elaborar_las_politicas<- case_when(
+  Encuesta$cuanto_crees_que_le_importa_a_los_politicos_la_opinion_de_los_jovenes_a_la_hora_de_elaborar_las_politicas %in% c("Mucho","Bastante") ~ "Mucho/Bastante",
+  Encuesta$cuanto_crees_que_le_importa_a_los_politicos_la_opinion_de_los_jovenes_a_la_hora_de_elaborar_las_politicas == "Poco" ~ "Poco",
+  Encuesta$cuanto_crees_que_le_importa_a_los_politicos_la_opinion_de_los_jovenes_a_la_hora_de_elaborar_las_politicas == "Nada" ~ "Nada"
+)
+
+Encuesta$cuanto_crees_que_le_importa_a_los_politicos_la_opinion_de_los_jovenes_a_la_hora_de_elaborar_las_politicas<-factor(Encuesta$cuanto_crees_que_le_importa_a_los_politicos_la_opinion_de_los_jovenes_a_la_hora_de_elaborar_las_politicas)
+
+Encuesta %>%
+  count(cuanto_crees_que_le_importa_a_los_politicos_la_opinion_de_los_jovenes_a_la_hora_de_elaborar_las_politicas, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$cuanto_crees_que_le_importa_a_los_politicos_la_opinion_de_los_jovenes_a_la_hora_de_elaborar_las_politicas)
+```
+
+```{r exploratorio 28 POLITICA CERRADA, warning=FALSE}
+Encuesta %>%
+  count(cuanto_crees_que_los_movimientos_sociales_pueden_provocar_cambios_politicos, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$cuanto_crees_que_los_movimientos_sociales_pueden_provocar_cambios_politicos)
+```
+
+```{r exploratorio 29 POLITICA ABIERTA(NA), warning=FALSE}
+Encuesta %>%
+  count(si_pudieras_plantear_una_propuesta_en_el_congreso_de_los_diputados_cual_seria, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+```
+
+```{r exploratorio 30 EU CERRADA, warning=FALSE}
+Encuesta %>%
+  count(votaste_en_las_ultimas_elecciones_del_parlamento_europeo_de_2019, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$votaste_en_las_ultimas_elecciones_del_parlamento_europeo_de_2019)
+```
+
+```{r exploratorio 31 EU CERRADA, warning=FALSE}
+Encuesta %>%
+  count(cual_de_estos_programas_de_juventud_de_la_union_europea_te_interesaria_conocer_mejor, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$cual_de_estos_programas_de_juventud_de_la_union_europea_te_interesaria_conocer_mejor)
+
+
+Encuesta$cual_de_estos_programas_de_juventud_de_la_union_europea_te_interesaria_conocer_mejor<-case_when(
+  Encuesta$cual_de_estos_programas_de_juventud_de_la_union_europea_te_interesaria_conocer_mejor == "Erasmus" ~ "Erasmus",
+  Encuesta$cual_de_estos_programas_de_juventud_de_la_union_europea_te_interesaria_conocer_mejor == "Voluntariado Europeo" ~ "Voluntariado Europeo",
+  Encuesta$cual_de_estos_programas_de_juventud_de_la_union_europea_te_interesaria_conocer_mejor == "No he participado en nada" ~ "No he participado en nada",
+  Encuesta$cual_de_estos_programas_de_juventud_de_la_union_europea_te_interesaria_conocer_mejor == "Prácticas en las instituciones europeas" ~ "Prácticas en las instituciones europeas",
+  Encuesta$cual_de_estos_programas_de_juventud_de_la_union_europea_te_interesaria_conocer_mejor == "Programa Europeo Juventud en Acción" ~ "Programa Europeo Juventud en Acción",
+  Encuesta$cual_de_estos_programas_de_juventud_de_la_union_europea_te_interesaria_conocer_mejor %in% c("Premios para Jóvenes", "Grupo de voluntarios regionales #TodosJuntos", "Otros") ~ "Otros"
+)
+
+
+Encuesta$cual_de_estos_programas_de_juventud_de_la_union_europea_te_interesaria_conocer_mejor<-factor(Encuesta$cual_de_estos_programas_de_juventud_de_la_union_europea_te_interesaria_conocer_mejor)
+
+
+Encuesta %>%
+  count(cual_de_estos_programas_de_juventud_de_la_union_europea_te_interesaria_conocer_mejor, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$cual_de_estos_programas_de_juventud_de_la_union_europea_te_interesaria_conocer_mejor)
+```
+
+```{r exploratorio 32 EU ABIERTA(NA), warning=FALSE}
+Encuesta %>%
+  count(si_pudieras_destacar_un_ambito_en_el_que_consideras_que_es_importante_la_coordinacion_europea_cual_seria, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+```
+
+```{r exploratorio 33 PANDEMIA CERRADA, warning=FALSE}
+Encuesta %>%
+  count(la_pandemia_ha_mejorado_significativamente_la_relacion, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$la_pandemia_ha_mejorado_significativamente_la_relacion)
+
+Encuesta$la_pandemia_ha_mejorado_significativamente_la_relacion <- case_when(
+  Encuesta$la_pandemia_ha_mejorado_significativamente_la_relacion %in% c("Con mis compañeros trabajo", "Con mis compañeros de estudios", "Con mis padres") ~ "Con compañeros del trabajo/estudios o padres",
+  Encuesta$la_pandemia_ha_mejorado_significativamente_la_relacion == "Con mis amigos" ~ "Con mis amigos",
+  Encuesta$la_pandemia_ha_mejorado_significativamente_la_relacion == "Con mi familia" ~ "Con mi familia",
+  Encuesta$la_pandemia_ha_mejorado_significativamente_la_relacion == "Conmigo mismo" ~ "Conmigo mismo"
+)
+
+
+Encuesta$la_pandemia_ha_mejorado_significativamente_la_relacion <- factor(Encuesta$la_pandemia_ha_mejorado_significativamente_la_relacion) 
+
+  
+Encuesta %>%
+  count(la_pandemia_ha_mejorado_significativamente_la_relacion, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$la_pandemia_ha_mejorado_significativamente_la_relacion)
+```
+
+```{r exploratorio 34 PANDEMIA CERRADA, warning=FALSE}
+Encuesta %>%
+  count(la_pandemia_ha_empeorado_significativamente_la_relacion, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$la_pandemia_ha_empeorado_significativamente_la_relacion)
+
+Encuesta$la_pandemia_ha_empeorado_significativamente_la_relacion <- case_when(
+  Encuesta$la_pandemia_ha_empeorado_significativamente_la_relacion %in% c("Con mis compañeros trabajo", "Con mis compañeros de estudios", "Con mis padres") ~ "Con compañeros del trabajo/estudios o padres",
+  Encuesta$la_pandemia_ha_empeorado_significativamente_la_relacion == "Con mis amigos" ~ "Con mis amigos",
+  Encuesta$la_pandemia_ha_empeorado_significativamente_la_relacion == "Con mi familia" ~ "Con mi familia",
+  Encuesta$la_pandemia_ha_empeorado_significativamente_la_relacion == "Conmigo mismo" ~ "Conmigo mismo"
+)
+
+
+Encuesta$la_pandemia_ha_empeorado_significativamente_la_relacion <- factor(Encuesta$la_pandemia_ha_empeorado_significativamente_la_relacion) 
+
+  
+Encuesta %>%
+  count(la_pandemia_ha_empeorado_significativamente_la_relacion, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$la_pandemia_ha_empeorado_significativamente_la_relacion)
+```
+
+```{r exploratorio 35 EDUCACIÓN CERRADA, warning=FALSE}
+Encuesta %>%
+  count(crees_que_existe_una_falta_de_cooperacion_y_de_valores_dentro_del_aula, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$crees_que_existe_una_falta_de_cooperacion_y_de_valores_dentro_del_aula)
+
+
+Encuesta$crees_que_existe_una_falta_de_cooperacion_y_de_valores_dentro_del_aula<-case_when(
+  Encuesta$crees_que_existe_una_falta_de_cooperacion_y_de_valores_dentro_del_aula %in% c("En desacuerdo", "En total desacuerdo") ~ "En desacuerdo",
+  Encuesta$crees_que_existe_una_falta_de_cooperacion_y_de_valores_dentro_del_aula == "totalmente de acuerdo" ~ "totalmente de acuerdo",
+  Encuesta$crees_que_existe_una_falta_de_cooperacion_y_de_valores_dentro_del_aula == "Neutral" ~ "Neutral	"
+)
+  
+Encuesta$crees_que_existe_una_falta_de_cooperacion_y_de_valores_dentro_del_aula<-factor(Encuesta$crees_que_existe_una_falta_de_cooperacion_y_de_valores_dentro_del_aula)
+
+Encuesta %>%
+  count(crees_que_existe_una_falta_de_cooperacion_y_de_valores_dentro_del_aula, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$crees_que_existe_una_falta_de_cooperacion_y_de_valores_dentro_del_aula)
+```
+
+```{r exploratorio 36 PANDEMIA ABIERTA, warning=FALSE}
+Encuesta %>%
+  count(cuales_crees_que_son_las_causas_del_origen_de_la_pandemia_de_coronavirus, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+```
+```{r recat v36}
+
+Encuesta<-
+Encuesta %>% 
+  mutate(cuales_crees_que_son_las_causas_del_origen_de_la_pandemia_de_coronavirus =
+           stringr::str_split(cuales_crees_que_son_las_causas_del_origen_de_la_pandemia_de_coronavirus, "\\|"))
+
+
+Encuesta<-Encuesta %>%
+  mutate(cuales_crees_que_son_las_causas_del_origen_de_la_pandemia_de_coronavirus = stringr::str_to_lower(cuales_crees_que_son_las_causas_del_origen_de_la_pandemia_de_coronavirus),
+         
+         cuales_crees_que_son_las_causas_del_origen_de_la_pandemia_de_coronavirus = case_when(str_detect(cuales_crees_que_son_las_causas_del_origen_de_la_pandemia_de_coronavirus, "densidad poblacional") ~ "densidad poblacional",
+str_detect(cuales_crees_que_son_las_causas_del_origen_de_la_pandemia_de_coronavirus, "sistema alimentario") ~ "sistema alimentario",
+str_detect(cuales_crees_que_son_las_causas_del_origen_de_la_pandemia_de_coronavirus, "un interes político o privado") ~ "un interes político o privado",
+str_detect(cuales_crees_que_son_las_causas_del_origen_de_la_pandemia_de_coronavirus, "un interés político o privado") ~ "un interes político o privado",
+str_detect(cuales_crees_que_son_las_causas_del_origen_de_la_pandemia_de_coronavirus, "globalizacion") ~ "globalizacion",
+str_detect(cuales_crees_que_son_las_causas_del_origen_de_la_pandemia_de_coronavirus, "globalización") ~ "globalizacion",
+str_detect(cuales_crees_que_son_las_causas_del_origen_de_la_pandemia_de_coronavirus, "modelo economico") ~ "modelo economico",
+str_detect(cuales_crees_que_son_las_causas_del_origen_de_la_pandemia_de_coronavirus, "destruccion de los habitats naturales") ~ "destruccion de los habitats naturales", 
+str_detect(cuales_crees_que_son_las_causas_del_origen_de_la_pandemia_de_coronavirus, "crisis climatica") ~ "crisis climatica",
+str_detect(cuales_crees_que_son_las_causas_del_origen_de_la_pandemia_de_coronavirus, "crisis climática") ~ "crisis climatica",
+str_detect(cuales_crees_que_son_las_causas_del_origen_de_la_pandemia_de_coronavirus, "modelo económico") ~ "modelo economico",
+str_detect(cuales_crees_que_son_las_causas_del_origen_de_la_pandemia_de_coronavirus, "destruccion de los hábitats naturales") ~ "destruccion de los habitats naturales", 
+str_detect(cuales_crees_que_son_las_causas_del_origen_de_la_pandemia_de_coronavirus, "chin|no lo|nat|ni idea|virus|todas|murci|cap|lab|mal|todo|bill|casu|azar|guerra|error|enf|zoo|5g|8m|desc|accident|gobier|neg|pol|negl|acabar|adoc|agenda|alg|alea|higiene|arma|ataq|sani|pandemia|comer|causas|control|creo|crea|soci|no se sabe|desinf| ninguna|pangol|gente|aliens|bad|ambic| purga| individual|de|nadie|dej| dinero|dict|ego|y|ciclo|el|falta|evo|cag|dios|ee|est|esv|inves|gest|int|la|las|los|matar|mr|concien|irres|in|idk|no|nsnc|poca|pensi|una|corrup|cultural|curso|fronteras| judíos|biologica|multi|mutación|ni lo sé, ni me importa|pangolín|provocado|quién sabe|reset|turismo|varias opciones") ~ "otro", 
+TRUE ~ NA))
+
+
+Encuesta%>%
+  count(cuales_crees_que_son_las_causas_del_origen_de_la_pandemia_de_coronavirus, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+```
+
+
+
+```{r exploratorio 37 POLÍTICA CERRADA, warning=FALSE}
+Encuesta %>%
+  count(cuanto_te_gustaria_dedicarte_a_la_politica, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$cuanto_te_gustaria_dedicarte_a_la_politica)
+```
+
+```{r exploratorio 38 SOCIAL CERRADA, warning=FALSE}
+Encuesta %>%
+  count(alguna_vez_has_hecho_alguna_de_estas_actividades, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta<-
+Encuesta %>% 
+  mutate(alguna_vez_has_hecho_alguna_de_estas_actividades =
+           stringr::str_split(alguna_vez_has_hecho_alguna_de_estas_actividades, "\\|"))
+
+Encuesta$actividades_Votado<-ifelse(Encuesta$alguna_vez_has_hecho_alguna_de_estas_actividades == "Votado en elecciones",1,0)
+Encuesta$actividades_Huelga<-ifelse(Encuesta$alguna_vez_has_hecho_alguna_de_estas_actividades == "Participado en una huelga",1,0)
+Encuesta$actividades_Manifestacion<-ifelse(Encuesta$alguna_vez_has_hecho_alguna_de_estas_actividades == "Participado en una manifestacion",1,0)
+Encuesta$actividades_EncuentroPolitico<-ifelse(Encuesta$alguna_vez_has_hecho_alguna_de_estas_actividades == "Atendido a un encuentro publico sobre temas politicos",1,0)
+Encuesta$actividades_ContactadoPolitico<-ifelse(Encuesta$alguna_vez_has_hecho_alguna_de_estas_actividades == "Contactado a un politico",1,0)
+Encuesta$actividades_Asociacion<-ifelse(Encuesta$alguna_vez_has_hecho_alguna_de_estas_actividades == "Formado parte de una asociacion, movimiento u organizacion politica",1,0)
+Encuesta$actividades_PartidoPolitico<-ifelse(Encuesta$alguna_vez_has_hecho_alguna_de_estas_actividades == "Formado parte de un partido politico",1,0)
+Encuesta$actividades_Donado<-ifelse(Encuesta$alguna_vez_has_hecho_alguna_de_estas_actividades == "Donado dinero para apoyar a un partido politico",1,0)
+
+Encuesta %>%
+  count(actividades_Votado, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(actividades_Huelga, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(actividades_Manifestacion, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(actividades_EncuentroPolitico, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(actividades_ContactadoPolitico, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(actividades_Asociacion, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(actividades_PartidoPolitico, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(actividades_Donado, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta<-
+  Encuesta %>% 
+  select(-alguna_vez_has_hecho_alguna_de_estas_actividades)
+```
+
+```{r exploratorio 39 POLITICA CERRADA, warning=FALSE}
+Encuesta %>%
+  count(alguna_vez_has_tenido_en_cuenta_que_tu_forma_de_consumo_es_tambien_una_forma_de_hacer_politica, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n)) 
+
+plot(Encuesta$alguna_vez_has_tenido_en_cuenta_que_tu_forma_de_consumo_es_tambien_una_forma_de_hacer_politica)
+```
+
+```{r exploratorio 40 PANDEMIA CERRADA, warning=FALSE}
+Encuesta %>%
+  count(cuanto_estas_dispuesto_a_limitar_tu_libertad_de_movimientos_a_cambio_de_seguridad_sanitaria, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$cuanto_estas_dispuesto_a_limitar_tu_libertad_de_movimientos_a_cambio_de_seguridad_sanitaria)
+
+Encuesta$cuanto_estas_dispuesto_a_limitar_tu_libertad_de_movimientos_a_cambio_de_seguridad_sanitaria<-case_when(
+  Encuesta$cuanto_estas_dispuesto_a_limitar_tu_libertad_de_movimientos_a_cambio_de_seguridad_sanitaria %in% c("Nada", "Ni idea") ~ "Nada/Ni idea",
+  Encuesta$cuanto_estas_dispuesto_a_limitar_tu_libertad_de_movimientos_a_cambio_de_seguridad_sanitaria == "Poco"~ "Poco",
+  Encuesta$cuanto_estas_dispuesto_a_limitar_tu_libertad_de_movimientos_a_cambio_de_seguridad_sanitaria == "Mucho"~"Mucho",
+  Encuesta$cuanto_estas_dispuesto_a_limitar_tu_libertad_de_movimientos_a_cambio_de_seguridad_sanitaria == "Batante"~"Bastante"
+)
+
+Encuesta$cuanto_estas_dispuesto_a_limitar_tu_libertad_de_movimientos_a_cambio_de_seguridad_sanitaria<-factor(Encuesta$cuanto_estas_dispuesto_a_limitar_tu_libertad_de_movimientos_a_cambio_de_seguridad_sanitaria)
+
+Encuesta %>%
+  count(cuanto_estas_dispuesto_a_limitar_tu_libertad_de_movimientos_a_cambio_de_seguridad_sanitaria, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$cuanto_estas_dispuesto_a_limitar_tu_libertad_de_movimientos_a_cambio_de_seguridad_sanitaria)
+```
+
+```{r exploratorio 41 PANDEMIA CERRADA, warning=FALSE}
+Encuesta %>%
+  count(cuanto_crees_que_la_pandemia_afectara_a_tus_oportunidades_laborales, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$cuanto_crees_que_la_pandemia_afectara_a_tus_oportunidades_laborales)
+
+
+Encuesta$cuanto_crees_que_la_pandemia_afectara_a_tus_oportunidades_laborales<-case_when(
+  Encuesta$cuanto_crees_que_la_pandemia_afectara_a_tus_oportunidades_laborales %in% c("Nada", "Ni idea") ~ "Nada/Ni idea",
+  Encuesta$cuanto_crees_que_la_pandemia_afectara_a_tus_oportunidades_laborales == "Poco"~ "Poco",
+  Encuesta$cuanto_crees_que_la_pandemia_afectara_a_tus_oportunidades_laborales == "Mucho"~"Mucho",
+  Encuesta$cuanto_crees_que_la_pandemia_afectara_a_tus_oportunidades_laborales == "Batante"~"Bastante"
+)
+
+Encuesta$cuanto_crees_que_la_pandemia_afectara_a_tus_oportunidades_laborales<-factor(Encuesta$cuanto_crees_que_la_pandemia_afectara_a_tus_oportunidades_laborales)
+
+Encuesta %>%
+  count(cuanto_crees_que_la_pandemia_afectara_a_tus_oportunidades_laborales, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$cuanto_crees_que_la_pandemia_afectara_a_tus_oportunidades_laborales)
+
+```
+
+```{r exploratorio 42 EDUCACIÓN CERRADA, warning=FALSE}
+Encuesta %>%
+  count(cuanto_crees_que_la_formacion_va_a_contribuir_a_que_tengas_un_mejor_sueldo, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$cuanto_crees_que_la_formacion_va_a_contribuir_a_que_tengas_un_mejor_sueldo)
+
+Encuesta$cuanto_crees_que_la_formacion_va_a_contribuir_a_que_tengas_un_mejor_sueldo<-case_when(
+  Encuesta$cuanto_crees_que_la_formacion_va_a_contribuir_a_que_tengas_un_mejor_sueldo %in% c("Nada", "Ni idea") ~ "Nada/Ni idea",
+  Encuesta$cuanto_crees_que_la_formacion_va_a_contribuir_a_que_tengas_un_mejor_sueldo == "Poco"~ "Poco",
+  Encuesta$cuanto_crees_que_la_formacion_va_a_contribuir_a_que_tengas_un_mejor_sueldo == "Mucho"~"Mucho",
+  Encuesta$cuanto_crees_que_la_formacion_va_a_contribuir_a_que_tengas_un_mejor_sueldo == "Batante"~"Bastante"
+)
+
+Encuesta$cuanto_crees_que_la_formacion_va_a_contribuir_a_que_tengas_un_mejor_sueldo<-factor(Encuesta$cuanto_crees_que_la_formacion_va_a_contribuir_a_que_tengas_un_mejor_sueldo)
+
+Encuesta %>%
+  count(cuanto_crees_que_la_formacion_va_a_contribuir_a_que_tengas_un_mejor_sueldo, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$cuanto_crees_que_la_formacion_va_a_contribuir_a_que_tengas_un_mejor_sueldo)
+```
+
+```{r exploratorio 43 EDUCACIÓN CERRADA, warning=FALSE}
+Encuesta %>%
+  count(cuanto_crees_que_la_tecnologia_puede_mejorar_la_calidad_de_la_educacion, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+
+plot(Encuesta$cuanto_crees_que_la_tecnologia_puede_mejorar_la_calidad_de_la_educacion)
+
+Encuesta$cuanto_crees_que_la_tecnologia_puede_mejorar_la_calidad_de_la_educacion<-case_when(
+  Encuesta$cuanto_crees_que_la_tecnologia_puede_mejorar_la_calidad_de_la_educacion %in% c("Nada", "Ni idea") ~ "Nada/Ni idea",
+  Encuesta$cuanto_crees_que_la_tecnologia_puede_mejorar_la_calidad_de_la_educacion == "Poco"~ "Poco",
+  Encuesta$cuanto_crees_que_la_tecnologia_puede_mejorar_la_calidad_de_la_educacion == "Mucho"~"Mucho",
+  Encuesta$cuanto_crees_que_la_tecnologia_puede_mejorar_la_calidad_de_la_educacion == "Batante"~"Bastante"
+)
+
+Encuesta$cuanto_crees_que_la_tecnologia_puede_mejorar_la_calidad_de_la_educacion<-factor(Encuesta$cuanto_crees_que_la_tecnologia_puede_mejorar_la_calidad_de_la_educacion)
+
+Encuesta %>%
+  count(cuanto_crees_que_la_tecnologia_puede_mejorar_la_calidad_de_la_educacion, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$cuanto_crees_que_la_tecnologia_puede_mejorar_la_calidad_de_la_educacion)
+```
+
+```{r exploratorio FUTURO 44 CERRADA, warning=FALSE}
+Encuesta %>%
+  count(has_sentido_alguna_vez_discriminacion_por, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n)) 
+
+Encuesta<-
+Encuesta %>% 
+  mutate(has_sentido_alguna_vez_discriminacion_por =
+           stringr::str_split(has_sentido_alguna_vez_discriminacion_por, "\\|"))
+
+Encuesta$discriminacion_cuerpo<-ifelse(Encuesta$has_sentido_alguna_vez_discriminacion_por == "tu cuerpo",1,0)
+Encuesta$discriminacion_Politica<-ifelse(Encuesta$has_sentido_alguna_vez_discriminacion_por == "tus ideas politicas",1,0)
+Encuesta$discriminacion_Relacionarte<-ifelse(Encuesta$has_sentido_alguna_vez_discriminacion_por == "tu forma de relacionarte",1,0)
+Encuesta$discriminacion_Edad<-ifelse(Encuesta$has_sentido_alguna_vez_discriminacion_por == "tu edad",1,0)
+Encuesta$discriminacion_Genero<-ifelse(Encuesta$has_sentido_alguna_vez_discriminacion_por == "tu genero",1,0)
+Encuesta$discriminacion_Religion<-ifelse(Encuesta$has_sentido_alguna_vez_discriminacion_por == "tus creencias religiosas",1,0)
+Encuesta$discriminacion_Economia<-ifelse(Encuesta$has_sentido_alguna_vez_discriminacion_por == "tus posibilidades economicas",1,0)
+Encuesta$discriminacion_Orientacion<-ifelse(Encuesta$has_sentido_alguna_vez_discriminacion_por == "tu orientacion sexual",1,0)
+Encuesta$discriminacion_Fisico<-ifelse(Encuesta$has_sentido_alguna_vez_discriminacion_por == "tus capacidades fisicas",1,0)
+Encuesta$discriminacion_ColorPiel<-ifelse(Encuesta$has_sentido_alguna_vez_discriminacion_por == "tu color de piel",1,0)
+Encuesta$discriminacion_Mentales<-ifelse(Encuesta$has_sentido_alguna_vez_discriminacion_por == "tus capacidades mentales",1,0)
+
+Encuesta %>%
+  count(discriminacion_cuerpo, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(discriminacion_Politica, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(discriminacion_Relacionarte, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(discriminacion_Edad, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(discriminacion_Genero, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(discriminacion_Religion, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(discriminacion_Economia, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(discriminacion_Orientacion, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(discriminacion_Fisico, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(discriminacion_ColorPiel, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(discriminacion_Mentales, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta<-
+  Encuesta %>% 
+  select(-has_sentido_alguna_vez_discriminacion_por)
+```
+
+```{r exploratorio 45 FUTURO CERRADA, warning=FALSE}
+Encuesta %>%
+  count(has_sentido_alguna_vez_discriminacion_por_tu_orientacion_sexual, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$has_sentido_alguna_vez_discriminacion_por_tu_orientacion_sexual)
+```
+
+```{r exploratorio 46 EDUCACION CERRADA, warning=FALSE}
+Encuesta %>%
+  count(consideras_que_el_planteamiento_general_del_sistema_educativo_responde_a_las_necesidades_que_vas_a_tener_en_el_futuro, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+  
+plot(Encuesta$consideras_que_el_planteamiento_general_del_sistema_educativo_responde_a_las_necesidades_que_vas_a_tener_en_el_futuro)
+
+
+
+Encuesta$consideras_que_el_planteamiento_general_del_sistema_educativo_responde_a_las_necesidades_que_vas_a_tener_en_el_futuro<-case_when(
+  Encuesta$consideras_que_el_planteamiento_general_del_sistema_educativo_responde_a_las_necesidades_que_vas_a_tener_en_el_futuro %in% c("Mucho","Bastante") ~"Mucho/Bastante",
+  Encuesta$consideras_que_el_planteamiento_general_del_sistema_educativo_responde_a_las_necesidades_que_vas_a_tener_en_el_futuro %in% c("Ni idea","Nada") ~ "Nada/Ni idea",
+  Encuesta$consideras_que_el_planteamiento_general_del_sistema_educativo_responde_a_las_necesidades_que_vas_a_tener_en_el_futuro == "Poco" ~ "Poco"
+)
+
+Encuesta$consideras_que_el_planteamiento_general_del_sistema_educativo_responde_a_las_necesidades_que_vas_a_tener_en_el_futuro<-factor(Encuesta$consideras_que_el_planteamiento_general_del_sistema_educativo_responde_a_las_necesidades_que_vas_a_tener_en_el_futuro)
+
+Encuesta %>%
+  count(consideras_que_el_planteamiento_general_del_sistema_educativo_responde_a_las_necesidades_que_vas_a_tener_en_el_futuro, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+  
+plot(Encuesta$consideras_que_el_planteamiento_general_del_sistema_educativo_responde_a_las_necesidades_que_vas_a_tener_en_el_futuro)
+```
+
+```{r exploratorio 47 EDUCACIÓN ABIERTA(NA), warning=FALSE}
+Encuesta %>%
+  count(que_cosas_te_hubiera_gustado_aprender_en_el_sistema_educativo, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+```
+
+```{r exploratorio 48 SOCIAL CERRADA, warning=FALSE}
+Encuesta %>%
+  count(definimos_agente_de_cambio_como_una_persona_que_toma_accion_para_solucionar_un_problema_lo_hace_en_equipo_y_busca_el_bien_de_todos_te_consideras_un_agente_de_cambio, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$definimos_agente_de_cambio_como_una_persona_que_toma_accion_para_solucionar_un_problema_lo_hace_en_equipo_y_busca_el_bien_de_todos_te_consideras_un_agente_de_cambio)
+```
+
+```{r exploratorio 49 SOCIAL CERRADA, warning=FALSE}
+Encuesta %>%
+  count(en_el_ultimo_ano_has_participado_en_alguna_iniciativa_para_abordar_un_problema_social_o_ambiental_en_tu_entorno, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$en_el_ultimo_ano_has_participado_en_alguna_iniciativa_para_abordar_un_problema_social_o_ambiental_en_tu_entorno)
+
+Encuesta$en_el_ultimo_ano_has_participado_en_alguna_iniciativa_para_abordar_un_problema_social_o_ambiental_en_tu_entorno<-case_when(
+  Encuesta$en_el_ultimo_ano_has_participado_en_alguna_iniciativa_para_abordar_un_problema_social_o_ambiental_en_tu_entorno %in% c("Siempre","Sí") ~ "Sí/Siempre",
+  Encuesta$en_el_ultimo_ano_has_participado_en_alguna_iniciativa_para_abordar_un_problema_social_o_ambiental_en_tu_entorno %in% c("Nunca", "No") ~ "No/Nunca",
+  Encuesta$en_el_ultimo_ano_has_participado_en_alguna_iniciativa_para_abordar_un_problema_social_o_ambiental_en_tu_entorno == "A veces" ~ "A veces",
+  Encuesta$en_el_ultimo_ano_has_participado_en_alguna_iniciativa_para_abordar_un_problema_social_o_ambiental_en_tu_entorno == "Pocas veces" ~ "Pocas veces"
+)
+
+Encuesta$en_el_ultimo_ano_has_participado_en_alguna_iniciativa_para_abordar_un_problema_social_o_ambiental_en_tu_entorno<-factor(Encuesta$en_el_ultimo_ano_has_participado_en_alguna_iniciativa_para_abordar_un_problema_social_o_ambiental_en_tu_entorno)
+
+
+Encuesta %>%
+  count(en_el_ultimo_ano_has_participado_en_alguna_iniciativa_para_abordar_un_problema_social_o_ambiental_en_tu_entorno, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$en_el_ultimo_ano_has_participado_en_alguna_iniciativa_para_abordar_un_problema_social_o_ambiental_en_tu_entorno)
+```
+
+```{r exploratorio 50 SOCIAL CERRADA, warning=FALSE}
+Encuesta %>%
+  count(si_has_respondido_que_no_a_la_anterior_pregunta_por_que_no_has_participado_en_alguna_iniciativa_para_abordar_un_problema_social_o_ambiental_en_tu_entorno, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n)) 
+
+plot(Encuesta$si_has_respondido_que_no_a_la_anterior_pregunta_por_que_no_has_participado_en_alguna_iniciativa_para_abordar_un_problema_social_o_ambiental_en_tu_entorno)
+```
+
+```{r exploratorio 51 SOCIAL CERRADA, warning=FALSE}
+Encuesta %>%
+  count(desde_donde_se_pueden_generar_cambios_sociales_prioriza_una_opcion, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$desde_donde_se_pueden_generar_cambios_sociales_prioriza_una_opcion)
+```
+
+```{r exploratorio 52 SOCIAL ABIERTA(NA), warning=FALSE}
+Encuesta %>%
+  count(que_cambios_sociales_crees_que_deben_ocurrir_en_los_proximos_anos, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+```
+
+```{r exploratorio 53 TRABAJO CERRADA, warning=FALSE}
+Encuesta %>%
+  count(cuanta_importancia_le_das_al_trabajo_en_tu_vida, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$cuanta_importancia_le_das_al_trabajo_en_tu_vida)
+
+Encuesta$cuanta_importancia_le_das_al_trabajo_en_tu_vida<- case_when(
+  Encuesta$cuanta_importancia_le_das_al_trabajo_en_tu_vida %in% c("Nada", "Poco") ~ "Poco/Nada",
+  Encuesta$cuanta_importancia_le_das_al_trabajo_en_tu_vida == "Mucho" ~ "Mucho",
+  Encuesta$cuanta_importancia_le_das_al_trabajo_en_tu_vida == "Bastante" ~ "Bastante"
+)
+
+Encuesta$cuanta_importancia_le_das_al_trabajo_en_tu_vida<-factor(Encuesta$cuanta_importancia_le_das_al_trabajo_en_tu_vida)
+
+
+Encuesta %>%
+  count(cuanta_importancia_le_das_al_trabajo_en_tu_vida, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$cuanta_importancia_le_das_al_trabajo_en_tu_vida)
+```
+
+```{r exploratorio 54 TRABAJO CERRADA, warning=FALSE}
+Encuesta %>%
+  count(como_consideras_que_es_la_oferta_laboral_para_los_jovenes_entre_18_y_25_anos, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$como_consideras_que_es_la_oferta_laboral_para_los_jovenes_entre_18_y_25_anos)
+
+Encuesta$como_consideras_que_es_la_oferta_laboral_para_los_jovenes_entre_18_y_25_anos<- case_when(
+  Encuesta$como_consideras_que_es_la_oferta_laboral_para_los_jovenes_entre_18_y_25_anos %in% c("Hay demasiada oferta", "Hay suficiente oferta") ~ "Hay suficiente/demasiada oferta",
+  Encuesta$como_consideras_que_es_la_oferta_laboral_para_los_jovenes_entre_18_y_25_anos == "Hay poca oferta" ~ "Hay poca oferta"
+)
+
+Encuesta$como_consideras_que_es_la_oferta_laboral_para_los_jovenes_entre_18_y_25_anos<-factor(Encuesta$como_consideras_que_es_la_oferta_laboral_para_los_jovenes_entre_18_y_25_anos)
+
+Encuesta %>%
+  count(como_consideras_que_es_la_oferta_laboral_para_los_jovenes_entre_18_y_25_anos, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$como_consideras_que_es_la_oferta_laboral_para_los_jovenes_entre_18_y_25_anos)
+```
+
+```{r exploratorio 55 TRABAJO CERRADA, warning=FALSE}
+Encuesta %>%
+  count(si_pudieras_escoger_que_modalidad_de_trabajo_prefieres, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$si_pudieras_escoger_que_modalidad_de_trabajo_prefieres)
+```
+
+```{r exploratorio 56 TRABAJO CERRADA, warning=FALSE}
+Encuesta %>%
+  count(te_gustaria_trabajar_cuatro_dias_a_la_semana, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$te_gustaria_trabajar_cuatro_dias_a_la_semana)
+
+Encuesta$te_gustaria_trabajar_cuatro_dias_a_la_semana<-case_when(
+  Encuesta$te_gustaria_trabajar_cuatro_dias_a_la_semana %in% c("no, creo que no sería suficiente", "no, deberíamos trabajar más horas") ~ "No",
+  Encuesta$te_gustaria_trabajar_cuatro_dias_a_la_semana == "sí, siempre y cuando no se vea afectado mi salario" ~ "sí, siempre y cuando no se vea afectado mi salario",
+  Encuesta$te_gustaria_trabajar_cuatro_dias_a_la_semana == "sí, entendiendo que mi salario se reduciría" ~ "sí, entendiendo que mi salario se reduciría"
+)
+
+Encuesta$te_gustaria_trabajar_cuatro_dias_a_la_semana<-factor(Encuesta$te_gustaria_trabajar_cuatro_dias_a_la_semana)
+
+Encuesta %>%
+  count(te_gustaria_trabajar_cuatro_dias_a_la_semana, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$te_gustaria_trabajar_cuatro_dias_a_la_semana)
+```
+
+```{r exploratorio 57 TRABAJO CERRADA, warning=FALSE}
+Encuesta %>%
+  count(estarias_dispuestoa_a_dejar_de_comprar_un_producto_porque_no_concuerda_con_tus_valores_personales, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$estarias_dispuestoa_a_dejar_de_comprar_un_producto_porque_no_concuerda_con_tus_valores_personales)
+
+Encuesta$estarias_dispuestoa_a_dejar_de_comprar_un_producto_porque_no_concuerda_con_tus_valores_personales<- case_when(
+  Encuesta$estarias_dispuestoa_a_dejar_de_comprar_un_producto_porque_no_concuerda_con_tus_valores_personales %in% c("Poco", "Nada")~"Poco/Nada",
+  Encuesta$estarias_dispuestoa_a_dejar_de_comprar_un_producto_porque_no_concuerda_con_tus_valores_personales == "Bastante" ~"Bastante",
+  Encuesta$estarias_dispuestoa_a_dejar_de_comprar_un_producto_porque_no_concuerda_con_tus_valores_personales == "Mucho" ~ "Mucho"
+)
+
+Encuesta$estarias_dispuestoa_a_dejar_de_comprar_un_producto_porque_no_concuerda_con_tus_valores_personales<-factor(Encuesta$estarias_dispuestoa_a_dejar_de_comprar_un_producto_porque_no_concuerda_con_tus_valores_personales)
+
+Encuesta %>%
+  count(estarias_dispuestoa_a_dejar_de_comprar_un_producto_porque_no_concuerda_con_tus_valores_personales, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$estarias_dispuestoa_a_dejar_de_comprar_un_producto_porque_no_concuerda_con_tus_valores_personales)
+```
+
+```{r exploratorio 58 TRABAJO CERRADA, warning=FALSE}
+Encuesta %>%
+  count(crees_que_la_brecha_salarial_entre_hombres_y_mujeres_en_algunos_oficios_esta_justificada, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$crees_que_la_brecha_salarial_entre_hombres_y_mujeres_en_algunos_oficios_esta_justificada)
+```
+
+```{r exploratorio 59 TRABAJO CERRADA, warning=FALSE}
+Encuesta %>%
+  count(estarias_dispuestoa_a_dejar_un_trabajo_porque_la_empresa_no_promueve_los_valores_con_los_que_te_sientes_representado, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$estarias_dispuestoa_a_dejar_un_trabajo_porque_la_empresa_no_promueve_los_valores_con_los_que_te_sientes_representado)
+```
+
+```{r exploratorio 60 TRABAJO ABIERTA(NA), warning=FALSE}
+Encuesta %>%
+  count(si_pudieras_hacer_una_reforma_para_mejorar_el_acceso_al_mercado_laboral_de_los_jovenes_cual_seria, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+```
+
+```{r exploratorio 61 PLANETA CERRADA, warning=FALSE}
+Encuesta %>%
+  count(cuanto_sabes_sobre_el_tema_de_la_crisis_climatica, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$cuanto_sabes_sobre_el_tema_de_la_crisis_climatica)
+
+Encuesta$cuanto_sabes_sobre_el_tema_de_la_crisis_climatica<- case_when(
+  Encuesta$cuanto_sabes_sobre_el_tema_de_la_crisis_climatica %in% c("Poco", "Nada")~"Poco/Nada",
+  Encuesta$cuanto_sabes_sobre_el_tema_de_la_crisis_climatica == "Bastante" ~"Bastante",
+  Encuesta$cuanto_sabes_sobre_el_tema_de_la_crisis_climatica == "Mucho" ~ "Mucho"
+)
+
+Encuesta$cuanto_sabes_sobre_el_tema_de_la_crisis_climatica<-factor(Encuesta$cuanto_sabes_sobre_el_tema_de_la_crisis_climatica)
+
+Encuesta %>%
+  count(cuanto_sabes_sobre_el_tema_de_la_crisis_climatica, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$cuanto_sabes_sobre_el_tema_de_la_crisis_climatica)
+
+```
+
+```{r exploratorio 62 PLANETA CERRADA, warning=FALSE}
+Encuesta %>%
+  count(cuando_escuchas_hablar_de_crisis_climatico_que_sientes, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$cuando_escuchas_hablar_de_crisis_climatico_que_sientes)
+
+Encuesta$cuando_escuchas_hablar_de_crisis_climatico_que_sientes<-case_when(
+  Encuesta$cuando_escuchas_hablar_de_crisis_climatico_que_sientes %in% c("Me preocupa","Tengo miedo","Me agobia") ~ "Sentimientos Negativos",
+  Encuesta$cuando_escuchas_hablar_de_crisis_climatico_que_sientes %in% c("Es un tema que me cansa ya","Siento esperanza","Se le está dando demasiada importancia","Me da igual") ~ "Esperanza/Indiferencia"
+)
+
+Encuesta$cuando_escuchas_hablar_de_crisis_climatico_que_sientes<-factor(Encuesta$cuando_escuchas_hablar_de_crisis_climatico_que_sientes)
+
+Encuesta %>%
+  count(cuando_escuchas_hablar_de_crisis_climatico_que_sientes, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$cuando_escuchas_hablar_de_crisis_climatico_que_sientes)
+```
+
+```{r exploratorio 63 PLANETA CERRADA, warning=FALSE}
+Encuesta %>%
+  count(a_que_se_debe_la_crisis_climatica, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$a_que_se_debe_la_crisis_climatica)
+
+Encuesta$a_que_se_debe_la_crisis_climatica<-case_when(
+  Encuesta$a_que_se_debe_la_crisis_climatica %in% c("Es algo natural", "No hay ninguna crisis climática") ~ "Natural/No existe",
+  Encuesta$a_que_se_debe_la_crisis_climatica == "En parte es causada por el ser humano y en parte es algo natural" ~ "En parte es causada por el ser humano y en parte es algo natural",
+  Encuesta$a_que_se_debe_la_crisis_climatica == "Es causada por el ser humano" ~ "Es causada por el ser humano"
+)
+
+Encuesta$a_que_se_debe_la_crisis_climatica<- factor(Encuesta$a_que_se_debe_la_crisis_climatica)
+
+Encuesta %>%
+  count(a_que_se_debe_la_crisis_climatica, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$a_que_se_debe_la_crisis_climatica)
+```
+
+```{r exploratorio 64 PLANETA CERRADA, warning=FALSE}
+Encuesta %>%
+  count(como_valorarias_el_nivel_de_concienciacion_y_educacion_medioambiental_que_se_da_para_atender_y_entender_la_emergencia_climatica, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$como_valorarias_el_nivel_de_concienciacion_y_educacion_medioambiental_que_se_da_para_atender_y_entender_la_emergencia_climatica)
+
+Encuesta$como_valorarias_el_nivel_de_concienciacion_y_educacion_medioambiental_que_se_da_para_atender_y_entender_la_emergencia_climatica<- case_when(
+  Encuesta$como_valorarias_el_nivel_de_concienciacion_y_educacion_medioambiental_que_se_da_para_atender_y_entender_la_emergencia_climatica %in% c("Excelente","Bueno","Correcto") ~ "Correcto o más",
+  Encuesta$como_valorarias_el_nivel_de_concienciacion_y_educacion_medioambiental_que_se_da_para_atender_y_entender_la_emergencia_climatica == "suficiente" ~ "suficiente",
+  Encuesta$como_valorarias_el_nivel_de_concienciacion_y_educacion_medioambiental_que_se_da_para_atender_y_entender_la_emergencia_climatica == "Nada" ~ "Nada",
+  Encuesta$como_valorarias_el_nivel_de_concienciacion_y_educacion_medioambiental_que_se_da_para_atender_y_entender_la_emergencia_climatica == "insuficiente" ~ "insuficiente"
+)
+
+Encuesta$como_valorarias_el_nivel_de_concienciacion_y_educacion_medioambiental_que_se_da_para_atender_y_entender_la_emergencia_climatica<- factor(Encuesta$como_valorarias_el_nivel_de_concienciacion_y_educacion_medioambiental_que_se_da_para_atender_y_entender_la_emergencia_climatica)
+
+
+Encuesta %>%
+  count(como_valorarias_el_nivel_de_concienciacion_y_educacion_medioambiental_que_se_da_para_atender_y_entender_la_emergencia_climatica, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$como_valorarias_el_nivel_de_concienciacion_y_educacion_medioambiental_que_se_da_para_atender_y_entender_la_emergencia_climatica)
+
+```
+
+```{r exploratorio 65 PLANETA ABIERTA(NA), warning=FALSE}
+Encuesta %>%
+  count(podrias_decirnos_que_medidas_concretas_crees_que_hay_que_llevar_a_cabo_para_mejorar_la_salud_del_planeta, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+```
+
+```{r exploratorio 66 FUTURO CERRADA, warning=FALSE}
+Encuesta %>%
+  count(como_afrontas_el_futuro, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$como_afrontas_el_futuro)
+```
+
+```{r exploratorio 67 FUTURO CERRADA, warning=FALSE}
+Encuesta %>%
+  count(espana_es_un_pais_avanzado_en_la_reduccion_de_desigualdades, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$espana_es_un_pais_avanzado_en_la_reduccion_de_desigualdades)
+```
+
+```{r exploratorio 68 FUTURO CERRADA, warning=FALSE}
+Encuesta %>%
+  count(mi_identidad_cultura_orientacion_sexual_identidad_de_genero_religion_clase_edad_influye_en_mi_relacion_con_los_demas, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$mi_identidad_cultura_orientacion_sexual_identidad_de_genero_religion_clase_edad_influye_en_mi_relacion_con_los_demas)
+```
+
+```{r exploratorio 69 FUTURO ABIERTA (NA), warning=FALSE}
+Encuesta %>%
+  count(que_haria_falta_en_el_futuro_para_hacer_de_este_mundo_un_lugar_un_poco_mas_habitable_concreta_lo_mas_posible_tu_respuesta, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+```
+
+```{r exploratorio 70 SD ESTUDIOS, warning=FALSE}
+Encuesta %>%
+  count(que_estudios_has_terminado, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(as_factor(Encuesta$que_estudios_has_terminado))
+
+Encuesta$que_estudios_has_terminado<- case_when(
+  Encuesta$que_estudios_has_terminado %in% c("Formación profesional básica","Bachillerato") ~ "Formación básica profesional/Bachillerato",
+  Encuesta$que_estudios_has_terminado %in% c("No terminé estudios obligatorios","Estudios obligatorios (ESO, EGB)") ~ "Educación obligatoria o menos",
+  Encuesta$que_estudios_has_terminado == "Técnico de Formación Profesional de Grado Medio" ~ "Técnico de Formación Profesional de Grado Medio",
+  Encuesta$que_estudios_has_terminado == "Universitarios superiores (Doctorado)" ~ "Universitarios superiores (Doctorado)",
+  Encuesta$que_estudios_has_terminado == "Técnico Superior de Formación Profesional" ~ "Técnico Superior de Formación Profesional",
+  Encuesta$que_estudios_has_terminado == "Universitarios medios (Grado, Diplomatura)" ~ "Universitarios medios (Grado, Diplomatura)"
+)
+
+Encuesta$que_estudios_has_terminado<-factor(Encuesta$que_estudios_has_terminado)
+
+
+Encuesta %>%
+  count(que_estudios_has_terminado, sort = TRUE) %>%
+  mutate(porc = round(100 * n / sum(n), 2))
+
+par(cex.axis = 0.4)  # Ajusta el tamaño de la fuente del eje
+par(cex.lab = 0.8)   # Ajusta el tamaño de la fuente de las etiquetas
+
+barplot(table(Encuesta$que_estudios_has_terminado))
+
+
+
+```
+```{r}
+library(plotly)
+
+Encuesta %>%
+  count(que_estudios_has_terminado, sort = TRUE) %>%
+  mutate(porc = round(100 * n / sum(n), 2)) %>%
+  plot_ly(x = ~que_estudios_has_terminado, y = ~n, z = ~porc, type = "bar") %>%
+  layout(scene = list(xaxis = list(title = "Edad"),
+                      yaxis = list(title = "Frecuencia"),
+                      zaxis = list(title = "Porcentaje")),
+         barmode = "group")
+
+```
+```{r}
+library(ggplot2)
+
+Encuesta %>%
+  count(que_estudios_has_terminado, sort = TRUE) %>%
+  mutate(porc = round(100 * n / sum(n), 2)) %>%
+  na.omit() %>%
+  ggplot(aes(x = porc)) +
+  geom_histogram(binwidth = 1, fill = "blue") +
+  labs(x = "Porcentaje", y = "Frecuencia") +
+  scale_x_continuous(labels = scales::percent())
+
+```
+
+
+```{r exploratorio 71 SD PROVINCIA, warning=FALSE}
+Encuesta %>%
+  count(tu_provincia, sort = TRUE) %>%
+   mutate(porc = round(100 * n / sum(n), 2))
+
+plot(as_factor(Encuesta$tu_provincia))
+```
+
+```{r exploratorio 72 SD ORIGEN, warning=FALSE}
+Encuesta %>%
+  count(tu_origen, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(as_factor(Encuesta$tu_origen))
+
+Encuesta$tu_origen<-case_when(
+  Encuesta$tu_origen %in% c("Nací en el extranjero y acabo de llegar a España hace poco","Nací en el extranjero y llevo viviendo varios años en España", "Nací en el extranjero pero viviendo toda la vida en España") ~ "Nací en el extranjero",
+  Encuesta$tu_origen == "Nací en España" ~ "Nací en España"
+)
+
+Encuesta$tu_origen<- factor(Encuesta$tu_origen)
+
+Encuesta %>%
+  count(tu_origen, sort = TRUE) %>%
+  mutate(porc = round(100 * n / sum(n), 2))
+
+plot(as_factor(Encuesta$tu_origen))
+```
+```{r}
+library(ggplot2)
+library(tidyr)
+
+library(ggplot2)
+library(tidyr)
+
+Encuesta %>%
+  count(tu_origen, sort = TRUE) %>%
+  mutate(porc = round(100 * n / sum(n), 2)) %>%
+  complete(tu_origen, fill = list(n = 0, porc = 0)) %>%
+  na.omit() %>%
+  ggplot(aes(x = 1, y = porc, fill = tu_origen)) +
+  geom_bar(stat = "identity", position = "stack") +
+  labs(x = "", y = "Porcentaje") +
+  scale_fill_discrete(name = "Habitantes del municipio")
+
+
+```
+
+
+```{r exploratorio 73 RELACIONES CERRADA, warning=FALSE}
+Encuesta %>%
+  count(quienes_consideras_que_son_mas_importantes_para_ti, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$quienes_consideras_que_son_mas_importantes_para_ti)
+
+Encuesta$quienes_consideras_que_son_mas_importantes_para_ti<-case_when(
+  Encuesta$quienes_consideras_que_son_mas_importantes_para_ti %in% c("Tu vecindario","Tu mascota") ~ "Tu vecino/mascota",
+  Encuesta$quienes_consideras_que_son_mas_importantes_para_ti == "Tu pareja" ~ "Tu pareja",
+  Encuesta$quienes_consideras_que_son_mas_importantes_para_ti == "Tus amistades" ~ "Tus amistades",
+  Encuesta$quienes_consideras_que_son_mas_importantes_para_ti == "Tu familia" ~ "Tu familia"
+)
+
+Encuesta$quienes_consideras_que_son_mas_importantes_para_ti<- factor(Encuesta$quienes_consideras_que_son_mas_importantes_para_ti)
+
+
+Encuesta %>%
+  count(quienes_consideras_que_son_mas_importantes_para_ti, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$quienes_consideras_que_son_mas_importantes_para_ti)
+```
+
+```{r exploratorio 74 POLITICA CERRADA, warning=FALSE}
+Encuesta %>%
+  count(como_valorarias_la_calidad_de_la_democracia_en_la_que_vives, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$como_valorarias_la_calidad_de_la_democracia_en_la_que_vives)
+
+
+Encuesta$como_valorarias_la_calidad_de_la_democracia_en_la_que_vives<-case_when(
+  Encuesta$como_valorarias_la_calidad_de_la_democracia_en_la_que_vives %in% c("Totalmente","Bastante") ~ "Bastante o más",
+  Encuesta$como_valorarias_la_calidad_de_la_democracia_en_la_que_vives == "Nada" ~ "Nada",
+  Encuesta$como_valorarias_la_calidad_de_la_democracia_en_la_que_vives == "Poco" ~ "Poco"
+)
+
+Encuesta$como_valorarias_la_calidad_de_la_democracia_en_la_que_vives<-factor(Encuesta$como_valorarias_la_calidad_de_la_democracia_en_la_que_vives)
+
+Encuesta %>%
+  count(como_valorarias_la_calidad_de_la_democracia_en_la_que_vives, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$como_valorarias_la_calidad_de_la_democracia_en_la_que_vives)
+
+```
+
+```{r exploratorio 75 SOCIAL CERRADA, warning=FALSE}
+Encuesta %>%
+  count(cuanto_te_preocupan_los_problemas_de_tu_entorno, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$cuanto_te_preocupan_los_problemas_de_tu_entorno)
+
+Encuesta$cuanto_te_preocupan_los_problemas_de_tu_entorno<-case_when(
+  Encuesta$cuanto_te_preocupan_los_problemas_de_tu_entorno %in% c("Nada","Ni idea", "Poco") ~ "Poco o nada",
+  Encuesta$cuanto_te_preocupan_los_problemas_de_tu_entorno == "Bastante" ~ "Bastante"
+)
+
+Encuesta$cuanto_te_preocupan_los_problemas_de_tu_entorno<- factor(Encuesta$cuanto_te_preocupan_los_problemas_de_tu_entorno)
+
+
+
+
+Encuesta %>%
+  count(cuanto_te_preocupan_los_problemas_de_tu_entorno, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$cuanto_te_preocupan_los_problemas_de_tu_entorno)
+```
+
+```{r exploratorio 76 SOCIAL CERRADA, warning=FALSE}
+Encuesta %>%
+  count(del_1_al_5_indica_lo_acuerdo_o_en_desacuerdo_que_estas_con_la_siguiente_frase_para_que_se_de_un_cambio_social_hace_falta_que_la_juventud_se_implique, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n)) 
+
+plot(Encuesta$del_1_al_5_indica_lo_acuerdo_o_en_desacuerdo_que_estas_con_la_siguiente_frase_para_que_se_de_un_cambio_social_hace_falta_que_la_juventud_se_implique)
+
+Encuesta$del_1_al_5_indica_lo_acuerdo_o_en_desacuerdo_que_estas_con_la_siguiente_frase_para_que_se_de_un_cambio_social_hace_falta_que_la_juventud_se_implique<-case_when(
+  Encuesta$del_1_al_5_indica_lo_acuerdo_o_en_desacuerdo_que_estas_con_la_siguiente_frase_para_que_se_de_un_cambio_social_hace_falta_que_la_juventud_se_implique %in% c("En total desacuerdo", "En desacuerdo") ~ "En desacuerdo",
+  Encuesta$del_1_al_5_indica_lo_acuerdo_o_en_desacuerdo_que_estas_con_la_siguiente_frase_para_que_se_de_un_cambio_social_hace_falta_que_la_juventud_se_implique == "Neutral" ~ "Neutral",
+  Encuesta$del_1_al_5_indica_lo_acuerdo_o_en_desacuerdo_que_estas_con_la_siguiente_frase_para_que_se_de_un_cambio_social_hace_falta_que_la_juventud_se_implique == "De acuerdo" ~ "De acuerdo",
+  Encuesta$del_1_al_5_indica_lo_acuerdo_o_en_desacuerdo_que_estas_con_la_siguiente_frase_para_que_se_de_un_cambio_social_hace_falta_que_la_juventud_se_implique == "Completamente de acuerdo" ~ "Completamente de acuerdo"
+)
+
+Encuesta$del_1_al_5_indica_lo_acuerdo_o_en_desacuerdo_que_estas_con_la_siguiente_frase_para_que_se_de_un_cambio_social_hace_falta_que_la_juventud_se_implique<-factor(Encuesta$del_1_al_5_indica_lo_acuerdo_o_en_desacuerdo_que_estas_con_la_siguiente_frase_para_que_se_de_un_cambio_social_hace_falta_que_la_juventud_se_implique)
+
+Encuesta %>%
+  count(del_1_al_5_indica_lo_acuerdo_o_en_desacuerdo_que_estas_con_la_siguiente_frase_para_que_se_de_un_cambio_social_hace_falta_que_la_juventud_se_implique, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n)) 
+
+plot(Encuesta$del_1_al_5_indica_lo_acuerdo_o_en_desacuerdo_que_estas_con_la_siguiente_frase_para_que_se_de_un_cambio_social_hace_falta_que_la_juventud_se_implique)
+```
+
+```{r exploratorio PLANETA 77 CERRADA, warning=FALSE}
+Encuesta %>%
+  count(consideras_que_se_planifica_a_largo_plazo_desde_las_instituciones_para_contrarrestar_la_emergencia_climatica, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$consideras_que_se_planifica_a_largo_plazo_desde_las_instituciones_para_contrarrestar_la_emergencia_climatica)
+
+Encuesta$consideras_que_se_planifica_a_largo_plazo_desde_las_instituciones_para_contrarrestar_la_emergencia_climatica<- case_when(
+  Encuesta$consideras_que_se_planifica_a_largo_plazo_desde_las_instituciones_para_contrarrestar_la_emergencia_climatica %in% c("Mucho", "Bastante") ~ "Mucho/Bastante",
+  Encuesta$consideras_que_se_planifica_a_largo_plazo_desde_las_instituciones_para_contrarrestar_la_emergencia_climatica == "Ni idea" ~ "Ni idea",
+  Encuesta$consideras_que_se_planifica_a_largo_plazo_desde_las_instituciones_para_contrarrestar_la_emergencia_climatica == "Nada" ~ "Nada",
+  Encuesta$consideras_que_se_planifica_a_largo_plazo_desde_las_instituciones_para_contrarrestar_la_emergencia_climatica == "Poco" ~ "Poco"
+)
+
+Encuesta$consideras_que_se_planifica_a_largo_plazo_desde_las_instituciones_para_contrarrestar_la_emergencia_climatica<-factor(Encuesta$consideras_que_se_planifica_a_largo_plazo_desde_las_instituciones_para_contrarrestar_la_emergencia_climatica)
+
+Encuesta %>%
+  count(consideras_que_se_planifica_a_largo_plazo_desde_las_instituciones_para_contrarrestar_la_emergencia_climatica, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$consideras_que_se_planifica_a_largo_plazo_desde_las_instituciones_para_contrarrestar_la_emergencia_climatica)
+```
+
+```{r exploratorio 78 SD EDAD, warning=FALSE}
+Encuesta %>%
+  count(tu_edad, sort = TRUE) %>%
+  mutate(porc = round(100 * n / sum(n), 2))
+
+plot(as_factor(Encuesta$tu_edad))
+```
+```{r}
+library(plotly)
+
+Encuesta %>%
+  count(tu_edad, sort = TRUE) %>%
+  mutate(porc = round(100 * n / sum(n), 2)) %>%
+  plot_ly(x = ~tu_edad, y = ~n, z = ~porc, type = "bar") %>%
+  layout(scene = list(xaxis = list(title = "Edad"),
+                      yaxis = list(title = "Frecuencia"),
+                      zaxis = list(title = "Porcentaje")),
+         barmode = "group")
+
+```
+
+
+```{r}
+library(ggplot2)
+
+Encuesta %>%
+  as_factor(tu_edad) %>% 
+  ggplot(aes(x = tu_edad)) +
+  geom_histogram(fill = "blue", color = "black") +
+  labs(x = "Habitantes del municipio", y = "Frecuencia")
+
+
+
+```
+
+
+```{r exploratorio 79 POLITICA CERRADA, warning=FALSE}
+Encuesta %>%
+  count(cuanto_te_sientes_representado_por_alguno_de_los_partidos_politicos_actuales, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$cuanto_te_sientes_representado_por_alguno_de_los_partidos_politicos_actuales)
+
+Encuesta$cuanto_te_sientes_representado_por_alguno_de_los_partidos_politicos_actuales<-case_when(
+  Encuesta$cuanto_te_sientes_representado_por_alguno_de_los_partidos_politicos_actuales %in% c("Mucho", "Bastante") ~ "Mucho/Bastante",
+  Encuesta$cuanto_te_sientes_representado_por_alguno_de_los_partidos_politicos_actuales == "Nada" ~ "Nada",
+  Encuesta$cuanto_te_sientes_representado_por_alguno_de_los_partidos_politicos_actuales == "Poco" ~ "Poco"
+)
+
+Encuesta$cuanto_te_sientes_representado_por_alguno_de_los_partidos_politicos_actuales<-factor(Encuesta$cuanto_te_sientes_representado_por_alguno_de_los_partidos_politicos_actuales)
+
+Encuesta %>%
+  count(cuanto_te_sientes_representado_por_alguno_de_los_partidos_politicos_actuales, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$cuanto_te_sientes_representado_por_alguno_de_los_partidos_politicos_actuales)
+```
+
+```{r exploratorio 80 SD OCUPACION, warning=FALSE}
+Encuesta %>%
+  count(tu_ocupacion, sort = TRUE) %>%
+  mutate(porc = round(100 * n / sum(n), 2))
+
+plot(as_factor(Encuesta$tu_ocupacion))
+```
+
+```{r}
+# Datos para el gráfico de tarta
+valores <- c(57.86, 29.69, 12.45)  # Valores proporcionales
+nombres <- c("Estudiante", "Trabaja", "Desempleado")  # Etiquetas de las categorías
+
+# Crear el gráfico de tarta
+pie(valores, labels = nombres, main = "Gráfico de Tarta")
+
+# Agregar leyenda
+legend("topright", legend = nombres, cex = 0.8, fill = rainbow(length(nombres)))
+
+# Ajustar el aspecto del gráfico
+axis(1, col = "white")
+axis(2, col = "white")
+box()
+
+
+```
+
+
+```{r exploratorio 81 EUROPA CERRADA, warning=FALSE}
+Encuesta %>%
+  count(si_tuvieras_que_definir_de_donde_eres_que_dirias, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$si_tuvieras_que_definir_de_donde_eres_que_dirias)
+```
+
+```{r exploratorio 82 EUROPA CERRADA, warning=FALSE}
+Encuesta %>%
+  count(cual_de_las_siguientes_afirmaciones_sobre_la_union_europea_representa_mas_adecuadamente_tu_opinion, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$cual_de_las_siguientes_afirmaciones_sobre_la_union_europea_representa_mas_adecuadamente_tu_opinion)
+```
+
+```{r exploratorio 83 EUROPA CERRADA, warning=FALSE}
+Encuesta %>%
+  count(crees_que_hace_falta_mas_informacion_sobre_lo_que_hace_la_union_europea, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$crees_que_hace_falta_mas_informacion_sobre_lo_que_hace_la_union_europea)
+
+Encuesta$crees_que_hace_falta_mas_informacion_sobre_lo_que_hace_la_union_europea<-case_when(
+  Encuesta$crees_que_hace_falta_mas_informacion_sobre_lo_que_hace_la_union_europea %in% c("Nunca", "Pocas veces", "No") ~ "No/Pocas veces o Nunca",
+  Encuesta$crees_que_hace_falta_mas_informacion_sobre_lo_que_hace_la_union_europea == "A veces" ~ "A veces",
+  Encuesta$crees_que_hace_falta_mas_informacion_sobre_lo_que_hace_la_union_europea == "Siempre" ~ "Siempre",
+  Encuesta$crees_que_hace_falta_mas_informacion_sobre_lo_que_hace_la_union_europea == "Sí" ~ "Sí"
+)
+
+Encuesta$crees_que_hace_falta_mas_informacion_sobre_lo_que_hace_la_union_europea<-factor(Encuesta$crees_que_hace_falta_mas_informacion_sobre_lo_que_hace_la_union_europea)
+
+Encuesta %>%
+  count(crees_que_hace_falta_mas_informacion_sobre_lo_que_hace_la_union_europea, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$crees_que_hace_falta_mas_informacion_sobre_lo_que_hace_la_union_europea)
+
+```
+
+```{r exploratorio 84 SD LIBROS, warning=FALSE}
+Encuesta %>%
+  count(cuantos_libros_hay_en_tu_casa, sort = TRUE) %>%
+  mutate(porc = round(100 * n / sum(n), 2))
+
+plot(as_factor(Encuesta$cuantos_libros_hay_en_tu_casa))
+```
+
+
+
+```{r}
+# Datos para el gráfico de tarta
+valores <- c(29.89, 20.33, 18.44, 13.64, 11.81, 5.89)  # Valores proporcionales
+nombres <- c("26-100 libros", "101-200 libros", "201-500 libros", "+500 libros", "11-25 libros", "0-10 libros")  # Etiquetas de las categorías
+
+# Crear el gráfico de tarta
+pie(valores, labels = nombres, main = "Gráfico de Tarta")
+
+# Agregar leyenda
+legend("topright", legend = nombres, cex = 0.8, fill = rainbow(length(nombres)))
+
+# Ajustar el aspecto del gráfico
+axis(1, col = "white")
+axis(2, col = "white")
+box()
+
+```
+
+```{r}
+# Datos para el gráfico de tarta
+valores <- c(47.59, 52.41)  # Valores proporcionales
+nombres <- c("-100 libros", "+100 libros")  # Etiquetas de las categorías
+
+# Crear el gráfico de tarta
+pie(valores, labels = nombres, main = "Gráfico de Tarta")
+
+# Agregar leyenda
+legend("topright", legend = nombres, cex = 0.8, fill = rainbow(length(nombres)))
+
+# Ajustar el aspecto del gráfico
+axis(1, col = "white")
+axis(2, col = "white")
+box()
+
+```
+
+```{r exploratorio 85 SD RELIGION, warning=FALSE}
+Encuesta %>%
+  count(tu_religion, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(as_factor(Encuesta$tu_religion))
+
+Encuesta$tu_religion<-case_when(
+  Encuesta$tu_religion %in% c("Ateísmo","Agnosticismo","Indiferente") ~ "No creyente",
+  Encuesta$tu_religion == "Católica" ~ "Católica",
+  Encuesta$tu_religion == "Creyente de otra religión" ~ "Creyente de otra religión",
+  Encuesta$tu_religion == "Islam" ~ "Islam",
+  Encuesta$tu_religion == "Protestante" ~ "Protestante",
+  Encuesta$tu_religion == "Judía" ~ "Judía"
+)
+
+Encuesta$tu_religion<-factor(Encuesta$tu_religion)
+
+Encuesta %>%
+  count(tu_religion, sort = TRUE) %>%
+  mutate(porc = round(100 * n / sum(n), 2))
+
+plot(Encuesta$tu_religion)
+
+```
+
+```{r}
+library(ggplot2)
+
+Encuesta %>%
+  count(tu_religion, sort = TRUE) %>%
+  mutate(porc = round(100 * n / sum(n), 2)) %>%
+  na.omit() %>%
+  ggplot(aes(x = reorder(tu_religion, -porc), y = porc)) +
+  geom_bar(stat = "identity", fill = "blue") +
+  labs(x = "Religión", y = "Porcentaje") +
+  coord_flip()
+
+```
+
+
+```{r exploratorio 86 CERRADA, warning=FALSE}
+Encuesta %>%
+  count(cual_de_estas_habilidades_consideras_mas_importantes_para_tu_futuro_escoge_tres, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta<-
+Encuesta %>% 
+  mutate(cual_de_estas_habilidades_consideras_mas_importantes_para_tu_futuro_escoge_tres =
+           stringr::str_split(cual_de_estas_habilidades_consideras_mas_importantes_para_tu_futuro_escoge_tres, "\\|"))
+
+
+Encuesta$habilidades_Aprender<-ifelse(Encuesta$cual_de_estas_habilidades_consideras_mas_importantes_para_tu_futuro_escoge_tres == "Aprender a aprender",1,0)
+Encuesta$habilidades_Digital<-ifelse(Encuesta$cual_de_estas_habilidades_consideras_mas_importantes_para_tu_futuro_escoge_tres == "Competencia digital",1,0)
+Encuesta$habilidades_Cultura<-ifelse(Encuesta$cual_de_estas_habilidades_consideras_mas_importantes_para_tu_futuro_escoge_tres == "Conciencia y expresiones culturales",1,0)
+Encuesta$habilidades_IniciativaEmprendedor<-ifelse(Encuesta$cual_de_estas_habilidades_consideras_mas_importantes_para_tu_futuro_escoge_tres == "Sentido de iniciativa y espiritu emprendedor",1,0)
+Encuesta$habilidades_SocialesCivicas <-ifelse(Encuesta$cual_de_estas_habilidades_consideras_mas_importantes_para_tu_futuro_escoge_tres == "Competencias sociales y civicas",1,0)
+Encuesta$habilidades_MatematicasCienciaTecnologia <- ifelse(Encuesta$cual_de_estas_habilidades_consideras_mas_importantes_para_tu_futuro_escoge_tres == "Competencia matematica y competencias basicas en ciencia y tecnologia",1,0)
+Encuesta$habilidades_Linguistica <- ifelse(Encuesta$cual_de_estas_habilidades_consideras_mas_importantes_para_tu_futuro_escoge_tres == "Comunicacion linguistica",1,0)
+
+Encuesta %>%
+  count(habilidades_Aprender, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(habilidades_Digital, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(habilidades_Cultura, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(habilidades_IniciativaEmprendedor, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(habilidades_SocialesCivicas, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(habilidades_MatematicasCienciaTecnologia, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(habilidades_Linguistica, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta<-
+  Encuesta %>% 
+  select(-cual_de_estas_habilidades_consideras_mas_importantes_para_tu_futuro_escoge_tres)
+
+```
+
+```{r exploratorio 87 PLANETA CERRADA, warning=FALSE}
+Encuesta %>%
+  count(quien_crees_que_deberia_tomar_accion_en_la_cuestion_climatica_se_pueden_marcar_varias_opciones, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n)) 
+Encuesta<-
+Encuesta %>% 
+  mutate(quien_crees_que_deberia_tomar_accion_en_la_cuestion_climatica_se_pueden_marcar_varias_opciones =
+           stringr::str_split(quien_crees_que_deberia_tomar_accion_en_la_cuestion_climatica_se_pueden_marcar_varias_opciones, "\\|"))
+
+
+Encuesta$accionclimatica_Sociedad<-ifelse(Encuesta$quien_crees_que_deberia_tomar_accion_en_la_cuestion_climatica_se_pueden_marcar_varias_opciones == "El conjunto de la sociedad colectivamente",1,0)
+
+Encuesta$accionclimatica_Gobiernos<-ifelse(Encuesta$quien_crees_que_deberia_tomar_accion_en_la_cuestion_climatica_se_pueden_marcar_varias_opciones == "Los gobiernos",1,0)
+
+Encuesta$accionclimatica_Persona<-ifelse(Encuesta$quien_crees_que_deberia_tomar_accion_en_la_cuestion_climatica_se_pueden_marcar_varias_opciones == "Cada persona individualmente",1,0)
+
+Encuesta$accionclimatica_Empresas<-ifelse(Encuesta$quien_crees_que_deberia_tomar_accion_en_la_cuestion_climatica_se_pueden_marcar_varias_opciones == "Las empresas",1,0)
+
+Encuesta$accionclimatica_NoAccion<- ifelse(Encuesta$quien_crees_que_deberia_tomar_accion_en_la_cuestion_climatica_se_pueden_marcar_varias_opciones == "No hace falta tomar accion",1,0)
+
+Encuesta$accionclimatica_Cientificos <- ifelse(Encuesta$quien_crees_que_deberia_tomar_accion_en_la_cuestion_climatica_se_pueden_marcar_varias_opciones == "Los cientificos",1,0)
+
+Encuesta %>%
+  count(accionclimatica_Sociedad, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(accionclimatica_Gobiernos, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(accionclimatica_Persona, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(accionclimatica_Empresas, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(accionclimatica_NoAccion, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(accionclimatica_Cientificos, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta<-
+  Encuesta %>% 
+  select(-quien_crees_que_deberia_tomar_accion_en_la_cuestion_climatica_se_pueden_marcar_varias_opciones)
+
+
+
+```
+
+```{r exploratorio 88 EUROPA CERRADA, warning=FALSE}
+Encuesta %>%
+  count(en_que_programas_de_juventud_de_la_union_europea_has_participado, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta<-
+Encuesta %>% 
+  mutate(en_que_programas_de_juventud_de_la_union_europea_has_participado =
+           stringr::str_split(en_que_programas_de_juventud_de_la_union_europea_has_participado, "\\|"))
+
+Encuesta$programasUE_Nada<-ifelse(Encuesta$en_que_programas_de_juventud_de_la_union_europea_has_participado == "No he participado en nada",1,0)
+
+Encuesta$programasUE_Erasmus<-ifelse(Encuesta$en_que_programas_de_juventud_de_la_union_europea_has_participado== "Erasmus",1,0)
+
+Encuesta$programasUE_Otros<-ifelse(Encuesta$en_que_programas_de_juventud_de_la_union_europea_has_participado=="Otros",1,0)
+
+Encuesta$programasUE_PremiosJovenes<-ifelse(Encuesta$en_que_programas_de_juventud_de_la_union_europea_has_participado=="Premios para Jovenes",1,0)
+
+Encuesta$programasUE_Practicas<-ifelse(Encuesta$en_que_programas_de_juventud_de_la_union_europea_has_participado=="Practicas en las instituciones europeas",1,0)
+
+Encuesta$programasUE_ProgramaEuropeo<-ifelse(Encuesta$en_que_programas_de_juventud_de_la_union_europea_has_participado=="Programa Europeo Juventud en Accion",1,0)
+
+Encuesta$programasUE_Campana<-ifelse(Encuesta$en_que_programas_de_juventud_de_la_union_europea_has_participado=="Campana #TodosJuntos",1,0)
+
+Encuesta$programasUE_Servicio<-ifelse(Encuesta$en_que_programas_de_juventud_de_la_union_europea_has_participado=="Servicio Voluntario Europeo/Cuerpo Europeo de Solidaridad",1,0)
+
+Encuesta %>%
+  count(programasUE_Nada, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(programasUE_Erasmus, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(programasUE_Otros, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(programasUE_PremiosJovenes, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(programasUE_Practicas, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(programasUE_ProgramaEuropeo, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(programasUE_Campana, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(programasUE_Servicio, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta <- 
+  Encuesta %>% 
+  select(-en_que_programas_de_juventud_de_la_union_europea_has_participado)
+```
+
+```{r exploratorio 89 SOCIAL CERRADA, warning=FALSE}
+Encuesta %>%
+  count(cuantas_de_estas_cosas_hay_en_tu_casa, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta<-
+Encuesta %>% 
+  mutate(cuantas_de_estas_cosas_hay_en_tu_casa =
+           stringr::str_split(cuantas_de_estas_cosas_hay_en_tu_casa, "\\|"))
+
+Encuesta$casa_Ordenador<-ifelse(Encuesta$cuantas_de_estas_cosas_hay_en_tu_casa == "Ordenador",1,0)
+
+Encuesta$casa_Coche<-ifelse(Encuesta$cuantas_de_estas_cosas_hay_en_tu_casa== "Coche",1,0)
+
+Encuesta$casa_Instrumento<-ifelse(Encuesta$cuantas_de_estas_cosas_hay_en_tu_casa=="Instrumento musical",1,0)
+
+Encuesta$casa_Tablet<-ifelse(Encuesta$cuantas_de_estas_cosas_hay_en_tu_casa=="Tablet",1,0)
+
+Encuesta$casa_Telefonos<-ifelse(Encuesta$cuantas_de_estas_cosas_hay_en_tu_casa=="Telefonos moviles con internet",1,0)
+
+Encuesta$casa_Televison<-ifelse(Encuesta$cuantas_de_estas_cosas_hay_en_tu_casa=="Television",1,0)
+
+Encuesta$casa_Habitaciones<-ifelse(Encuesta$cuantas_de_estas_cosas_hay_en_tu_casa=="Habitaciones con bano propio",1,0)
+
+Encuesta$casa_Ebook<-ifelse(Encuesta$cuantas_de_estas_cosas_hay_en_tu_casa=="E-book",1,0)
+
+Encuesta %>%
+  count(casa_Ordenador, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(casa_Coche, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(casa_Instrumento, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(casa_Tablet, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(casa_Telefonos, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(casa_Televison, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(casa_Habitaciones, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(casa_Ebook, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta<-
+  Encuesta %>%
+  select(-cuantas_de_estas_cosas_hay_en_tu_casa)
+  
+
+```
+
+```{r exploratorio 90 FUTURO CERRADA, warning=FALSE}
+Encuesta %>%
+  count(pensando_en_tu_futuro_inmediato_que_te_preocupa_mas_elige_tres, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta<-
+Encuesta %>%
+  mutate(pensando_en_tu_futuro_inmediato_que_te_preocupa_mas_elige_tres =
+           stringr::str_split(pensando_en_tu_futuro_inmediato_que_te_preocupa_mas_elige_tres, "\\|"))
+
+Encuesta$pensando_MercadoLaboral<-ifelse(Encuesta$pensando_en_tu_futuro_inmediato_que_te_preocupa_mas_elige_tres == "El acceso al mercado laboral",1,0)
+Encuesta$pensando_Sanidad<-ifelse(Encuesta$pensando_en_tu_futuro_inmediato_que_te_preocupa_mas_elige_tres == "La sanidad",1,0)
+Encuesta$pensando_CalidadEmpleo<-ifelse(Encuesta$pensando_en_tu_futuro_inmediato_que_te_preocupa_mas_elige_tres == "Los problemas relacionados con la calidad del empleo",1,0)
+Encuesta$pensando_ProblemasSociales<-ifelse(Encuesta$pensando_en_tu_futuro_inmediato_que_te_preocupa_mas_elige_tres == "Los problemas de indole social, desigualdades, injusticias, etc.",1,0)
+Encuesta$pensando_ProblemasEconomicos<-ifelse(Encuesta$pensando_en_tu_futuro_inmediato_que_te_preocupa_mas_elige_tres == "Los problemas de indole economica",1,0)
+Encuesta$pensando_GestionPolitica<-ifelse(Encuesta$pensando_en_tu_futuro_inmediato_que_te_preocupa_mas_elige_tres == "La gestion politica",1,0)
+Encuesta$pensando_Corrupcion<-ifelse(Encuesta$pensando_en_tu_futuro_inmediato_que_te_preocupa_mas_elige_tres == "La corrupcion y el fraude|La gestion politica",1,0)
+Encuesta$pensando_Vivienda<-ifelse(Encuesta$pensando_en_tu_futuro_inmediato_que_te_preocupa_mas_elige_tres == "La vivienda",1,0)
+Encuesta$pensando_Educacion<-ifelse(Encuesta$pensando_en_tu_futuro_inmediato_que_te_preocupa_mas_elige_tres == "La educacion",1,0)
+Encuesta$pensando_Drogas<-ifelse(Encuesta$pensando_en_tu_futuro_inmediato_que_te_preocupa_mas_elige_tres == "Las drogas",1,0)
+Encuesta$pensando_Pensiones<-ifelse(Encuesta$pensando_en_tu_futuro_inmediato_que_te_preocupa_mas_elige_tres == "Las pensiones",1,0)
+Encuesta$pensando_Valores<-ifelse(Encuesta$pensando_en_tu_futuro_inmediato_que_te_preocupa_mas_elige_tres == "La crisis de valores",1,0)
+Encuesta$pensando_InseguridadCiudadana<-ifelse(Encuesta$pensando_en_tu_futuro_inmediato_que_te_preocupa_mas_elige_tres == "La inseguridad ciudadana",1,0)
+Encuesta$pensando_Impuestos<-ifelse(Encuesta$pensando_en_tu_futuro_inmediato_que_te_preocupa_mas_elige_tres == "Los impuestos",1,0)
+Encuesta$pensando_DesigualdaGenero<-ifelse(Encuesta$pensando_en_tu_futuro_inmediato_que_te_preocupa_mas_elige_tres == "La desigualdad de genero",1,0)
+Encuesta$pensando_Inmigracion<-ifelse(Encuesta$pensando_en_tu_futuro_inmediato_que_te_preocupa_mas_elige_tres == "La inmigracion",1,0)
+Encuesta$pensando_ProblemasClimaticos<-ifelse(Encuesta$pensando_en_tu_futuro_inmediato_que_te_preocupa_mas_elige_tres == "Los problemas climaticos y medioambientales",1,0)
+Encuesta$pensando_Recortes<-ifelse(Encuesta$pensando_en_tu_futuro_inmediato_que_te_preocupa_mas_elige_tres == "Los recortes",1,0)
+Encuesta$pensando_Nacionalismos<-ifelse(Encuesta$pensando_en_tu_futuro_inmediato_que_te_preocupa_mas_elige_tres == "Los nacionalismos el estatuto de Catalunya, independentismo...)",1,0)
+Encuesta$pensando_ServiciosPublicos<-ifelse(Encuesta$pensando_en_tu_futuro_inmediato_que_te_preocupa_mas_elige_tres == "El funcionamiento de los servicios publicos",1,0)
+
+
+Encuesta %>%
+  count(pensando_MercadoLaboral, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(pensando_Sanidad, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(pensando_CalidadEmpleo, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(pensando_ProblemasSociales, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(pensando_ProblemasEconomicos, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(pensando_GestionPolitica, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(pensando_Corrupcion, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(pensando_Vivienda, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(pensando_Educacion, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(pensando_Drogas, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(pensando_Pensiones, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(pensando_Valores, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(pensando_InseguridadCiudadana, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(pensando_Impuestos, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(pensando_DesigualdaGenero, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(pensando_Inmigracion, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(pensando_ProblemasClimaticos, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(pensando_Recortes, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(pensando_Nacionalismos, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(pensando_ServiciosPublicos, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+
+
+
+
+Encuesta<-
+  Encuesta %>% 
+  select(-pensando_en_tu_futuro_inmediato_que_te_preocupa_mas_elige_tres)
+
+```
+
+
+```{r exploratorio 91 SOCIAL CERRADA, warning=FALSE}
+Encuesta %>%
+  count(de_la_siguiente_lista_marca_las_cosas_que_haya_en_tu_casa, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta<-
+Encuesta %>%
+  mutate(de_la_siguiente_lista_marca_las_cosas_que_haya_en_tu_casa =
+           stringr::str_split(de_la_siguiente_lista_marca_las_cosas_que_haya_en_tu_casa, "\\|"))
+
+
+Encuesta$lista_Escritorio<-ifelse(Encuesta$de_la_siguiente_lista_marca_las_cosas_que_haya_en_tu_casa == "Un escritorio",1,0)
+Encuesta$lista_Ordenador<-ifelse(Encuesta$de_la_siguiente_lista_marca_las_cosas_que_haya_en_tu_casa == "Un ordenador que puedas usar para estudiar o trabajar",1,0)
+Encuesta$lista_Lugar<-ifelse(Encuesta$de_la_siguiente_lista_marca_las_cosas_que_haya_en_tu_casa == "Un sitio tranquilo para estudiar o trabajar",1,0)
+Encuesta$lista_Internet<-ifelse(Encuesta$de_la_siguiente_lista_marca_las_cosas_que_haya_en_tu_casa == "Conexion a Internet",1,0)
+Encuesta$lista_Habitacion<-ifelse(Encuesta$de_la_siguiente_lista_marca_las_cosas_que_haya_en_tu_casa == "Una habitacion para ti",1,0)
+Encuesta$lista_LibrosArte<-ifelse(Encuesta$de_la_siguiente_lista_marca_las_cosas_que_haya_en_tu_casa == "Libros sobre arte",1,0)
+Encuesta$lista_LibrosLiteratura<-ifelse(Encuesta$de_la_siguiente_lista_marca_las_cosas_que_haya_en_tu_casa == "Libros de literatura clásica (por ejemplo, El Quijote)",1,0)
+Encuesta$lista_LibrosPoesia<-ifelse(Encuesta$de_la_siguiente_lista_marca_las_cosas_que_haya_en_tu_casa == "Libros de poesia",1,0)
+Encuesta$lista_ObrasArte<-ifelse(Encuesta$de_la_siguiente_lista_marca_las_cosas_que_haya_en_tu_casa == "Obras de arte (por ejemplo, pinturas)",1,0)
+
+
+Encuesta %>%
+  count(lista_Escritorio, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(lista_Ordenador, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(lista_Lugar, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(lista_Internet, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(lista_Habitacion, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(lista_LibrosArte, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(lista_LibrosLiteratura, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(lista_LibrosPoesia, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(lista_ObrasArte, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta<-
+  Encuesta %>% 
+  select(-de_la_siguiente_lista_marca_las_cosas_que_haya_en_tu_casa)
+
+```
+
+```{r exploratorio 92 PLANETA CERRADA, warning=FALSE}
+Encuesta %>%
+  count(que_tipo_de_acciones_has_hecho_por_actuar_ante_la_situacion_climatica_se_pueden_marcar_varias_opciones, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta<-
+Encuesta %>%
+  mutate(que_tipo_de_acciones_has_hecho_por_actuar_ante_la_situacion_climatica_se_pueden_marcar_varias_opciones =
+           stringr::str_split(que_tipo_de_acciones_has_hecho_por_actuar_ante_la_situacion_climatica_se_pueden_marcar_varias_opciones, "\\|"))
+
+Encuesta$acciones_Movimiento<-ifelse(Encuesta$que_tipo_de_acciones_has_hecho_por_actuar_ante_la_situacion_climatica_se_pueden_marcar_varias_opciones == "He cambiado mi forma de moverme en la ciudad",1,0)
+Encuesta$acciones_Concienciar<-ifelse(Encuesta$que_tipo_de_acciones_has_hecho_por_actuar_ante_la_situacion_climatica_se_pueden_marcar_varias_opciones == "He intentado concienciar a mi entorno",1,0)
+Encuesta$acciones_Alimentacion<-ifelse(Encuesta$que_tipo_de_acciones_has_hecho_por_actuar_ante_la_situacion_climatica_se_pueden_marcar_varias_opciones == "He cambiado mi alimentacion",1,0)
+Encuesta$acciones_InfoRRSS<-ifelse(Encuesta$que_tipo_de_acciones_has_hecho_por_actuar_ante_la_situacion_climatica_se_pueden_marcar_varias_opciones == "He compartido informacion en redes sociales",1,0)
+Encuesta$acciones_Consumo<-ifelse(Encuesta$que_tipo_de_acciones_has_hecho_por_actuar_ante_la_situacion_climatica_se_pueden_marcar_varias_opciones == "He reducido mi consumo de objetos (ropa, tecnología, etc.) en general",1,0)
+Encuesta$acciones_Factura<-ifelse(Encuesta$que_tipo_de_acciones_has_hecho_por_actuar_ante_la_situacion_climatica_se_pueden_marcar_varias_opciones == "He cambiado mi factura para consumir solo energia renovable",1,0)
+Encuesta$acciones_Nada<-ifelse(Encuesta$que_tipo_de_acciones_has_hecho_por_actuar_ante_la_situacion_climatica_se_pueden_marcar_varias_opciones == "No he cambiado nada, no es necesario",1,0)
+Encuesta$acciones_Organizacion<-ifelse(Encuesta$que_tipo_de_acciones_has_hecho_por_actuar_ante_la_situacion_climatica_se_pueden_marcar_varias_opciones == "Me he unido a alguna organizacion o movimiento social",1,0)
+
+Encuesta %>%
+  count(acciones_Movimiento, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(acciones_Concienciar, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(acciones_Alimentacion, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(acciones_InfoRRSS, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(acciones_Consumo, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(acciones_Factura, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(acciones_Nada, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta %>%
+  count(acciones_Organizacion, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+Encuesta<-
+  Encuesta %>% 
+  select(-que_tipo_de_acciones_has_hecho_por_actuar_ante_la_situacion_climatica_se_pueden_marcar_varias_opciones)
+```
+
+```{r exploratorio 93 EUROPA CERRADA, warning=FALSE}
+Encuesta %>%
+  count(cuanto_crees_que_influye_la_union_europea_en_tu_vida, sort = TRUE) %>%
+  mutate(porc = 100*n/sum(n))
+
+plot(Encuesta$cuanto_crees_que_influye_la_union_europea_en_tu_vida)
+```
+
+
+# BLOQUES
+
+## BLOQUE 1 --> RELACIONES
+
+- 1.Tengo suficiente gente a mi alrededor para pedir ayuda cuando la
+necesito (c)
+
+- 2.Mis relaciones sociales son tan satisfactorias como me gustarían(c) 
+
+- 3.Consideras que los medios de comunicación tienen en cuenta toda
+la diversidad de la sociedad española (c) 
+
+- 4.Consideras que la nuestra es una sociedad que valora… (c)
+
+- 5.Quiénes consideras que son más importantes para ti (c) 
+
+- 6.Qué medidas propones para reforzar las relaciones entre
+vecinos/as de un mismo barrio(a) 
+
+## BLOQUE 2 --> REDES SOCIALES
+
+- 1.Qué uso principal le das a las redes sociales(c)
+
+- 2.Alguna vez has borrado alguna de las aplicaciones(c)
+
+- 3.Con cuánta frecuencia utilizas las redes sociales (c)
+
+- 4.Sientes que puedes decir y/o mostrar lo que quieras en las redes
+sociales (c)
+
+- 5. Te sientes influenciado por las personas que sigues en las redes
+sociales (c)
+
+- 6. Deberían prohibirse los discursos violentos y de odio en las redes
+sociales (c)
+
+- 7. Alguna vez te has sentido más integrada/o dentro de las redes
+sociales que fuera (c)
+
+- 8. Cuánto te preocupa el uso de tus datos por parte de las empresas (c)
+
+- 9. Cómo se podría mejorar el uso de las redes sociales (a)
+
+## BLOQUE 3 --> POLÍTICA
+
+- 1.Cuánto te gustaría dedicarte a la política (c)
+
+- 2.Cómo valorarías la calidad de la democracia en la que vives (c)
+
+- 3.Cuánto te sientes representado por alguno de los partidos políticos
+actuales (c)
+
+- 4.Cuánto crees que les importa a los políticos la opinión de los
+jóvenes a la hora de elaborar las políticas (c)
+
+- 5.Cuánto crees que los movimientos sociales pueden provocar
+cambios políticos (c)
+
+- 6.Alguna vez has tenido en cuenta que tu forma de consumo es
+también una forma de hacer política (c)
+
+- 7.Si pudieras plantear una propuesta en el congreso de los diputados
+cuál seria (a)
+
+## BLOQUE 4 --> EUROPA
+
+- 1.Si tuvieras que definir de dónde eres qué dirías (c)
+
+- 2.Cuánto crees que influye la unión europea en tu vida (c)
+
+- 3.Votaste en las últimas elecciones del parlamento europeo de 2019(c)
+
+- 4.Cuál de las siguientes afirmaciones sobre la unión europea
+representa más adecuadamente tu opinión (c)
+
+- 5.En qué programas de juventud de la unión europea has participado (c)
+
+- 6.Cuál de estos programas de juventud de la unión europea te
+interesaría conocer mejor (c)
+
+- 7. Crees que hace falta más información sobre lo que hace la unión
+europea (c)
+
+- 8. Si pudieras destacar un ámbito en el que consideras que es
+importante la coordinación europea cuál seria (a)
+
+## BLOQUE 5 --> PANDEMIA
+
+- 1.La pandemia ha mejorado significativamente la relación (c)
+
+- 2.La pandemia ha empeorado significativamente la relación (c)
+
+- 3.Cuánto estas dispuesto a limitar tu libertad de movimientos a
+cambio de seguridad sanitaria (c)
+
+- 4.Cuánto crees que la pandemia afectara a tus oportunidades
+laborales (c)
+
+- 5.Crees que el gobierno debería obligar a los ciudadanos a vacunarse (c)
+
+- 6.Cómo crees que podemos evitar otras pandemias en el futuro (a)
+
+- 7. cuales crees que son las causas del origen de la pandemia de coronavirus (a)
+
+## BLOQUE 6 --> EDUCACIÓN
+
+- 1.Por qué es importante la educación (c)
+
+- 2.Cuánto crees que la formación va a contribuir a que tengas un
+mejor sueldo (c)
+
+- 3.Crees que desde la educación debería potenciarse más la
+motivación personal de cada alumno (c)
+
+- 4.Crees que existe una falta de cooperación y de valores dentro del
+aula (c)
+
+- 5.Cómo consideras que ha sido el desarrollo de tu aprendizaje en el
+sistema educativo actual (c)
+
+- 6.Cuánto crees que la tecnología puede mejorar la calidad de la
+educación (c)
+
+- 7.Cuál de estas habilidades consideras más importantes para tu
+futuro (c)
+
+- 8.Consideras que el planteamiento general del sistema educativo
+responde a las necesidades que vas a tener en el futuro (c)
+
+- 9.Qué cosas te hubiera gustado aprender en el sistema educativo (a)
+
+## BLOQUE 7 --> SOCIAL
+
+- 1.Cuánto te preocupan los problemas de tu entorno (c)
+
+- 2.Del 1 al 5 indica lo acuerdo o en desacuerdo que estas con la
+siguiente frase: para que se dé un cambio social hace falta que la
+juventud se implique (c)
+
+- 3.Definimos agente de cambio como una persona que toma acción
+para solucionar un problema lo hace en equipo y busca el bien de
+todos te consideras un agente de cambio (c)
+
+- 4. En el último año has participado en alguna iniciativa para abordar
+un problema social o ambiental en tu entorno (c)
+
+- 5. Si has respondido que no a la anterior pregunta, por qué no has
+participado en alguna iniciativa para abordar un problema social o
+ambiental en tu entorno (c)
+
+- 6. Desde dónde se pueden generar cambios sociales (c)
+
+- 7.alguna vez has hecho alguna de estas actividades (c)
+
+- 8.cuantas de estas cosas hay en tu casa (c)
+
+- 9.de la siguiente lista marca las cosas que haya en tu casa (c)
+
+- 10.Qué cambios sociales crees que deben ocurrir en los próximos
+años (a)
+
+
+
+## BLOQUE 8 --> TRABAJO
+
+- 1.Cuánta importancia le das al trabajo en tu vida (c)
+
+- 2.Cómo consideras que es la oferta laboral para los jóvenes entre 18
+y 25 años (c)
+
+- 3.Si pudieras escoger, qué modalidad de trabajo prefieres (c)
+
+- 4.Te gustaría trabajar cuatro días a la semana (c)
+
+- 5.Estarías dispuesto/a a dejar de comprar un producto porque no
+concuerda con tus valores personales (c)
+
+- 6.Crees que la brecha salarial entre hombres y mujeres en algunos
+oficios está justificada (c)
+
+- 7.Estarías dispuesto/a a dejar un trabajo porque la empresa no
+promueve los valores con los que te sientes representado (c)
+
+- 8,Si pudieras hacer una reforma para mejorar el acceso al mercado
+laboral de los jóvenes cuál seria (a)
+
+## BLOQUE 9 --> PLANETA
+
+- 1.Cuánto sabes sobre el tema de la crisis climática (c)
+
+- 2.Cuando escuchas hablar de crisis climático qué sientes (c)
+
+- 3.A qué se debe la crisis climática (c) 
+
+- 4.Quién crees que debería tomar acción en la cuestión climática (c)
+
+- 5.Qué tipo de acciones has hecho por actuar ante la situación
+climática (c)
+
+- 6. Consideras que se planifica a largo plazo desde las instituciones
+para contrarrestar la emergencia climática (c)
+
+- 7. Consideras que se planifica a largo plazo desde las instituciones
+para contrarrestar la emergencia climática (c)
+
+- 8.Podrías decirnos que medidas concretas crees que hay que llevar a
+cabo para mejorar la salud del planeta (a)
+
+
+## BLOQUE 10 --> FUTURO
+
+- 1. Has sentido alguna vez discriminación por tu orientación sexual (c)
+
+- 2.Cómo afrontas el futuro (c)
+
+- 3.Pensando en tu futuro inmediato qué te preocupa mas (c)
+
+- 4.Qué sientes cuando estas con personas que no piensan como tú (c)
+
+- 5.España es un país avanzado en la reducción de desigualdades (c)
+
+- 6.Mi identidad, cultura, orientación sexual, identidad de género,
+religión, clase, edad influye en mi relación con los demás (c)
+
+- 7.Has sentido alguna vez discriminación por (c)
+
+- 8.Qué haría falta en el futuro para hacer de este mundo un lugar un
+poco más habitable (a)
+
+
+# PREGUNTAS SOCIODEMOGRÁFICAS
+
+## 1.GENERO
+
+- Tu género 
+
+## 2.EDAD
+
+- Tu edad
+
+## 3.ORIGEN
+
+- Tu origen
+
+## 4.ESTUDIOS
+
+- Qué estudios has terminado
+
+## 5.OCUPACIÓN
+
+- Tu ocupación
+
+## 6.HABITANTES
+
+- Cuántos habitantes tiene el municipio en el que vives
+
+## 7.PROVINCIA
+
+- Tu provincia
+
+## 8.LIBROS
+
+- Cuántos libros hay en tu casa
+
+## 9.RELIGIÓN
+
+- Tu religión
+
+# BASE LIMPIA DE PERFILES Y VARIABLES HORA
+
+```{r limpieza}
+Encuesta<-
+  Encuesta %>% 
+    select(-c(profile_age,profile_postal_code,profile_city,profile_community,start_date,end_date))
+```
+
+# VARIABLES EN BLANCO
+
+```{r TODO NA}
+datos_completo_na <- Encuesta %>% 
+  select_if(~all(is.na(.)))
+
+names(datos_completo_na)
+
+```
+# BASE DEPURADA SIN VARIABLES VACIAS
+
+```{r base dep}
+Encuesta <- 
+  Encuesta%>%
+    select(-c(como_crees_que_podemos_evitar_otras_pandemias_en_el_futuro,que_medidas_propones_para_reforzar_las_relaciones_entre_vecinosas_de_un_mismo_barrio,como_se_podria_mejorar_el_uso_de_las_redes_sociales,si_pudieras_plantear_una_propuesta_en_el_congreso_de_los_diputados_cual_seria, si_pudieras_destacar_un_ambito_en_el_que_consideras_que_es_importante_la_coordinacion_europea_cual_seria, que_cosas_te_hubiera_gustado_aprender_en_el_sistema_educativo, que_cambios_sociales_crees_que_deben_ocurrir_en_los_proximos_anos, si_pudieras_hacer_una_reforma_para_mejorar_el_acceso_al_mercado_laboral_de_los_jovenes_cual_seria,podrias_decirnos_que_medidas_concretas_crees_que_hay_que_llevar_a_cabo_para_mejorar_la_salud_del_planeta, que_haria_falta_en_el_futuro_para_hacer_de_este_mundo_un_lugar_un_poco_mas_habitable_concreta_lo_mas_posible_tu_respuesta))
+    
+
+```
+
+
+# Imputación de los NA
+
+```{r}
+clusters <- detectCores() - 1
+make_cluster <- makeCluster(clusters)
+registerDoParallel(make_cluster)
+
+Encuesta<-data.frame(lapply(Encuesta, as.factor))
+
+library(missForest)
+
+
+# Imputar los valores faltantes utilizando Random Forest
+Encuesta_imputed <- missForest(Encuesta)
+
+# Verificar que no haya más valores faltantes en los datos imputados
+sum(is.na(Encuesta_imputed$ximp))
+
+
+
+
+stopCluster(make_cluster)
+
+registerDoSEQ() 
+
+```
+
+```{r}
+Encuesta_imputada<-Encuesta_imputed$ximp
+
+save(Encuesta_imputada,file="Encuesta_imputada.Rda")
+write.csv(Encuesta_imputada,"Encuesta_imputada.csv")
+
+```
+
+
+
+
+
+```{r eval = FALSE}
+datos_sin_cols |>
+  mutate(tu_genero = stringr::str_to_lower(tu_genero),
+         tu_genero = case_when(str_detect(tu_genero, "no bin") ~ "no binario",
+                               str_detect(tu_genero, "el genero no|el género no") ~ "no existe",
+                               str_detect(tu_genero, "no me identifico") ~ "no identifico", str_detect(tu_genero, "trans") ~ "trans",
+                               str_detect(tu_genero, "no me identifico") ~ "no identifico", str_detect(tu_genero, "helicoptero|helicóptero|no creo que sea relevante|persona") ~ "otro", TRUE ~ tu_genero)) |> drop_na(tu_genero) |> count(tu_genero %in% c("mujer", "hombre", "género fluído", "otro", "agénero", "andrógino", "no binario", "trans", "no existe", "no identifico")) |> mutate(porc = 100*n/sum(n))
+```
+
+```{r eval = FALSE}
+datos_sin_cols |>
+  mutate(acciones_climaticas =
+           stringr::str_split(que_tipo_de_acciones_has_hecho_por_actuar_ante_la_situacion_climatica_se_pueden_marcar_varias_opciones, "\\|"),
+         .before = everything())
+```
+
